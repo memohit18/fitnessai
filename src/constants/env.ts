@@ -1,0 +1,17 @@
+type AppEnv = 'development' | 'staging' | 'production';
+
+function requireEnv(name: keyof NodeJS.ProcessEnv): string {
+  const value = process.env[name];
+  if (!value) {
+    throw new Error(`Missing required environment variable: ${name}`);
+  }
+  return value;
+}
+
+export const env = {
+  appEnv: requireEnv('EXPO_PUBLIC_APP_ENV') as AppEnv,
+  apiUrl: requireEnv('EXPO_PUBLIC_API_URL'),
+  apiTimeoutMs: Number(requireEnv('EXPO_PUBLIC_API_TIMEOUT_MS')),
+  authScheme: requireEnv('EXPO_PUBLIC_AUTH_SCHEME'),
+  isDev: process.env.EXPO_PUBLIC_APP_ENV === 'development',
+} as const;
