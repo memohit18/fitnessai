@@ -1,16 +1,20 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import { StyleSheet, Text, View } from 'react-native';
+import { Alert, StyleSheet, Text, View } from 'react-native';
 import { z } from 'zod';
 
+import { signup } from '../../api/authApi';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Screen } from '../../components/ui/Screen';
 import { ThemeToggle } from '../../components/ui/ThemeToggle';
 import { useTheme } from '../../contexts/ThemeContext';
-import type { AuthStackParamList } from '../../types/navigation';
+import { useAuth } from '../../hooks';
+import type { AuthStackParamList } from '../../navigation/types';
+import { extractAuthSession, getApiErrorMessage } from '../../utils/api';
 
 const signupSchema = z
   .object({
@@ -25,12 +29,13 @@ const signupSchema = z
   });
 
 type SignupForm = z.infer<typeof signupSchema>;
-
 type SignupNavigation = NativeStackNavigationProp<AuthStackParamList, 'Signup'>;
 
 export function SignupScreen() {
   const navigation = useNavigation<SignupNavigation>();
   const { colors } = useTheme();
+  const { signIn } = useAuth();
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const {
     control,
@@ -46,8 +51,32 @@ export function SignupScreen() {
     },
   });
 
-  const onSubmit = (data: SignupForm) => {
-    console.log('Signup submitted', data.email);
+  const onSubmit = async (data: SignupForm) => {
+    setSubmitError(null);
+
+    try {
+      const response = await signup({
+        name: data.name.trim(),
+        email: data.email.trim().toLowerCase(),
+        password: data.password,
+      });
+
+      const session = extractAuthSession(response, data.email.trim().toLowerCase());
+
+      if (session) {
+        await signIn(session);
+        return;
+      }
+
+      Alert.alert(
+        'Account created',
+        response.message ?? 'Your account was created. Please sign in.',
+        [{ text: 'Sign in', onPress: () => navigation.navigate('Login') }],
+      );
+    } catch (error) {
+      const message = getApiErrorMessage(error, 'Unable to create account.');
+      setSubmitError(message);
+    }
   };
 
   return (
@@ -77,7 +106,7 @@ export function SignupScreen() {
               label="Full name"
               onBlur={onBlur}
               onChangeText={onChange}
-              placeholder="Jane Doe"
+              placeholder="Mohit Kumar"
               value={value}
             />
           )}
@@ -95,7 +124,7 @@ export function SignupScreen() {
               label="Email"
               onBlur={onBlur}
               onChangeText={onChange}
-              placeholder="you@example.com"
+              placeholder="mohit@example.com"
               value={value}
             />
           )}
@@ -137,6 +166,10 @@ export function SignupScreen() {
           )}
         />
 
+        {submitError ? (
+          <Text style={[styles.submitError, { color: colors.error }]}>{submitError}</Text>
+        ) : null}
+
         <Button
           disabled={isSubmitting}
           label={isSubmitting ? 'Creating account...' : 'Create account'}
@@ -177,6 +210,10 @@ const styles = StyleSheet.create({
   },
   form: {
     gap: 20,
+  },
+  submitError: {
+    fontSize: 14,
+    lineHeight: 20,
   },
   footerRow: {
     alignItems: 'center',

@@ -1,12 +1,14 @@
 import { NavigationContainer, DefaultTheme, DarkTheme } from '@react-navigation/native';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, type ReactNode } from 'react';
+import { Provider as ReduxProvider } from 'react-redux';
 
 import { ThemeProvider, useTheme } from '../contexts/ThemeContext';
-import { AuthNavigator } from '../navigation/AuthNavigator';
+import { RootNavigator } from '../navigation/RootNavigator';
 import { configureGoogleSignIn } from '../services/googleAuth';
+import { store } from '../store';
 
-function AppContent() {
+function NavigationRoot() {
   const { colors, resolvedTheme } = useTheme();
 
   const navigationTheme =
@@ -38,7 +40,7 @@ function AppContent() {
     <>
       <StatusBar style={resolvedTheme === 'dark' ? 'light' : 'dark'} />
       <NavigationContainer theme={navigationTheme}>
-        <AuthNavigator />
+        <RootNavigator />
       </NavigationContainer>
     </>
   );
@@ -50,8 +52,8 @@ export function AppProviders({ children }: { children?: ReactNode }) {
   }, []);
 
   return (
-    <ThemeProvider>
-      {children ?? <AppContent />}
-    </ThemeProvider>
+    <ReduxProvider store={store}>
+      <ThemeProvider>{children ?? <NavigationRoot />}</ThemeProvider>
+    </ReduxProvider>
   );
 }

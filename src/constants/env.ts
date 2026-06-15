@@ -15,6 +15,7 @@ function optionalEnv(name: keyof NodeJS.ProcessEnv): string {
 export const env = {
   appEnv: requireEnv('EXPO_PUBLIC_APP_ENV') as AppEnv,
   apiUrl: requireEnv('EXPO_PUBLIC_API_URL'),
+  authApiUrl: requireEnv('EXPO_PUBLIC_AUTH_API_URL'),
   apiTimeoutMs: Number(requireEnv('EXPO_PUBLIC_API_TIMEOUT_MS')),
   authScheme: requireEnv('EXPO_PUBLIC_AUTH_SCHEME'),
   googleIosClientId: optionalEnv('EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID'),

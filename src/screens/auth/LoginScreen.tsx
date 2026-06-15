@@ -16,6 +16,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { z } from 'zod';
 
+import { login } from '../../api/authApi';
 import { AuthBackground } from '../../components/auth/AuthBackground';
 import { AuthInput, PasswordInput } from '../../components/auth/AuthInput';
 import { Checkbox } from '../../components/auth/Checkbox';
@@ -23,9 +24,12 @@ import { GoogleButton } from '../../components/auth/GoogleButton';
 import { GradientButton } from '../../components/auth/GradientButton';
 import { Logo } from '../../components/auth/Logo';
 import { ThemeToggle } from '../../components/ui/ThemeToggle';
+import { useAuth } from '../../hooks';
 import { useTheme } from '../../contexts/ThemeContext';
 import { signInWithGoogle } from '../../services/googleAuth';
-import type { AuthStackParamList } from '../../types/navigation';
+import { getDeviceName, getDeviceType } from '../../services/deviceInfo';
+import type { AuthStackParamList } from '../../navigation/types';
+import { extractAuthSession, getApiErrorMessage } from '../../utils/api';
 
 const loginSchema = z.object({
   email: z.email('Enter a valid email'),
@@ -38,8 +42,10 @@ type LoginNavigation = NativeStackNavigationProp<AuthStackParamList, 'Login'>;
 export function LoginScreen() {
   const navigation = useNavigation<LoginNavigation>();
   const { colors } = useTheme();
+  const { signIn } = useAuth();
   const [rememberMe, setRememberMe] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const {
     control,
@@ -53,8 +59,29 @@ export function LoginScreen() {
     },
   });
 
-  const onSubmit = (data: LoginForm) => {
-    console.log('Login submitted', data.email, { rememberMe });
+  const onSubmit = async (data: LoginForm) => {
+    setSubmitError(null);
+
+    try {
+      const response = await login({
+        email: data.email.trim().toLowerCase(),
+        password: data.password,
+        deviceType: getDeviceType(),
+        deviceName: getDeviceName(),
+      });
+
+      const session = extractAuthSession(response, data.email.trim().toLowerCase());
+
+      if (!session) {
+        setSubmitError('Login succeeded but no access token was returned.');
+        return;
+      }
+
+      await signIn(session);
+      console.log('[Auth] Login complete — redirecting to home');
+    } catch (error) {
+      setSubmitError(getApiErrorMessage(error, 'Unable to sign in.'));
+    }
   };
 
   const onGoogleSignIn = async () => {
@@ -63,10 +90,10 @@ export function LoginScreen() {
     setGoogleLoading(false);
 
     if (result.success) {
-      console.log('Google sign in success', {
-        email: result.data.user.email,
-        idToken: result.data.idToken,
-      });
+      Alert.alert(
+        'Google Sign-In',
+        'Google sign-in needs to be linked with your backend login API.',
+      );
       return;
     }
 
@@ -160,6 +187,10 @@ export function LoginScreen() {
                   onToggle={() => setRememberMe((current) => !current)}
                 />
 
+                {submitError ? (
+                  <Text style={[styles.submitError, { color: colors.error }]}>{submitError}</Text>
+                ) : null}
+
                 <GradientButton
                   label="Sign In"
                   loading={isSubmitting}
@@ -240,6 +271,10 @@ const styles = StyleSheet.create({
   },
   form: {
     gap: 18,
+  },
+  submitError: {
+    fontSize: 14,
+    lineHeight: 20,
   },
   forgotLink: {
     fontSize: 13,
