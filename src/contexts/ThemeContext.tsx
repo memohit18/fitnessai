@@ -7,7 +7,6 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { useColorScheme } from 'react-native';
 
 import {
   darkColors,
@@ -24,17 +23,17 @@ interface ThemeContextValue {
   resolvedTheme: ResolvedTheme;
   colors: ThemeColors;
   setMode: (mode: ThemeMode) => void;
+  toggleMode: () => void;
 }
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
 function isThemeMode(value: string | null): value is ThemeMode {
-  return value === 'light' || value === 'dark' || value === 'system';
+  return value === 'light' || value === 'dark';
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const systemScheme = useColorScheme();
-  const [mode, setModeState] = useState<ThemeMode>('system');
+  const [mode, setModeState] = useState<ThemeMode>('dark');
 
   useEffect(() => {
     void getStorageString(THEME_STORAGE_KEY).then((stored) => {
@@ -44,9 +43,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  const resolvedTheme: ResolvedTheme =
-    mode === 'system' ? (systemScheme === 'dark' ? 'dark' : 'light') : mode;
-
+  const resolvedTheme: ResolvedTheme = mode;
   const colors = resolvedTheme === 'dark' ? darkColors : lightColors;
 
   const setMode = useCallback((nextMode: ThemeMode) => {
@@ -54,9 +51,17 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     void setStorageString(THEME_STORAGE_KEY, nextMode);
   }, []);
 
+  const toggleMode = useCallback(() => {
+    setModeState((current) => {
+      const nextMode: ThemeMode = current === 'dark' ? 'light' : 'dark';
+      void setStorageString(THEME_STORAGE_KEY, nextMode);
+      return nextMode;
+    });
+  }, []);
+
   const value = useMemo(
-    () => ({ mode, resolvedTheme, colors, setMode }),
-    [mode, resolvedTheme, colors, setMode],
+    () => ({ mode, resolvedTheme, colors, setMode, toggleMode }),
+    [mode, resolvedTheme, colors, setMode, toggleMode],
   );
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;

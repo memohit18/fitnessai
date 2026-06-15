@@ -1,0 +1,21 @@
+{
+  "_comment": "Download from Firebase/Google Cloud and save as google-services.json in project root",
+  "project_info": {
+    "project_number": "YOUR_SENDER_ID",
+    "project_id": "your-project-id"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:YOUR_SENDER_ID:android:YOUR_APP_ID",
+        "android_client_info": {
+          "package_name": "com.thinktank.mobile"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [{ "current_key": "YOUR_API_KEY" }],
+      "services": { "appinvite_service": { "other_platform_oauth_client": [] } }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -1,65 +1,53 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { useTheme } from '../../contexts/ThemeContext';
-import type { ThemeMode } from '../../constants/theme';
-
-const MODES: { label: string; value: ThemeMode }[] = [
-  { label: 'System', value: 'system' },
-  { label: 'Light', value: 'light' },
-  { label: 'Dark', value: 'dark' },
-];
 
 export function ThemeToggle() {
   const { colors, mode, setMode } = useTheme();
 
   return (
     <View style={[styles.container, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-      {MODES.map((item) => {
-        const isActive = mode === item.value;
-
-        return (
-          <Pressable
-            key={item.value}
-            accessibilityRole="button"
-            accessibilityState={{ selected: isActive }}
-            onPress={() => setMode(item.value)}
-            style={[
-              styles.option,
-              isActive && { backgroundColor: colors.primary },
-            ]}
-          >
-            <Text
-              style={[
-                styles.optionText,
-                { color: isActive ? colors.primaryText : colors.textSecondary },
-              ]}
-            >
-              {item.label}
-            </Text>
-          </Pressable>
-        );
-      })}
+      <Pressable
+        accessibilityRole="button"
+        accessibilityState={{ selected: mode === 'light' }}
+        onPress={() => setMode('light')}
+        style={[styles.option, mode === 'light' && { backgroundColor: colors.primary }]}
+      >
+        <Ionicons
+          color={mode === 'light' ? colors.primaryText : colors.textSecondary}
+          name="sunny"
+          size={16}
+        />
+      </Pressable>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityState={{ selected: mode === 'dark' }}
+        onPress={() => setMode('dark')}
+        style={[styles.option, mode === 'dark' && { backgroundColor: colors.primary }]}
+      >
+        <Ionicons
+          color={mode === 'dark' ? colors.primaryText : colors.textSecondary}
+          name="moon"
+          size={16}
+        />
+      </Pressable>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    borderRadius: 12,
+    borderRadius: 20,
     borderWidth: 1,
     flexDirection: 'row',
     padding: 4,
   },
   option: {
     alignItems: 'center',
-    borderRadius: 8,
-    flex: 1,
+    borderRadius: 16,
+    height: 32,
     justifyContent: 'center',
-    minHeight: 36,
-    paddingHorizontal: 8,
-  },
-  optionText: {
-    fontSize: 13,
-    fontWeight: '600',
+    width: 36,
   },
 });

@@ -1,9 +1,10 @@
 import { NavigationContainer, DefaultTheme, DarkTheme } from '@react-navigation/native';
 import { StatusBar } from 'expo-status-bar';
-import { type ReactNode } from 'react';
+import { useEffect, type ReactNode } from 'react';
 
 import { ThemeProvider, useTheme } from '../contexts/ThemeContext';
 import { AuthNavigator } from '../navigation/AuthNavigator';
+import { configureGoogleSignIn } from '../services/googleAuth';
 
 function AppContent() {
   const { colors, resolvedTheme } = useTheme();
@@ -44,6 +45,10 @@ function AppContent() {
 }
 
 export function AppProviders({ children }: { children?: ReactNode }) {
+  useEffect(() => {
+    configureGoogleSignIn();
+  }, []);
+
   return (
     <ThemeProvider>
       {children ?? <AppContent />}
