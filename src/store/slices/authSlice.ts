@@ -3,7 +3,6 @@ import { createAsyncThunk, createSlice, type PayloadAction } from '@reduxjs/tool
 import { clearSession, loadSession, saveSession } from '../../services/authSession';
 import { signOutFromGoogle } from '../../services/googleAuth';
 import type { AuthSession } from '../../types/auth';
-import { logAuthSignIn } from '../../utils/authLogger';
 
 export type AuthStatus = 'hydrating' | 'authenticated' | 'unauthenticated';
 
@@ -27,11 +26,6 @@ export const signIn = createAsyncThunk(
   'auth/signIn',
   async (session: AuthSession) => {
     await saveSession(session);
-    logAuthSignIn(
-      session.user.email,
-      Boolean(session.accessToken),
-      Boolean(session.refreshToken),
-    );
     return session;
   },
 );

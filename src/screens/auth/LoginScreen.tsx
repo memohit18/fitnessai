@@ -78,7 +78,6 @@ export function LoginScreen() {
       }
 
       await signIn(session);
-      console.log('[Auth] Login complete — redirecting to home');
     } catch (error) {
       setSubmitError(getApiErrorMessage(error, 'Unable to sign in.'));
     }
