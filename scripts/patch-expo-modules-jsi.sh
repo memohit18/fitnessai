@@ -16,13 +16,13 @@ from pathlib import Path
 path = Path(sys.argv[1])
 text = path.read_text()
 
-marker = "Xcode 27+: ternary over C function pointers"
+marker = "Xcode 27+: ternary over C function pointers is rejected"
 if marker in text:
     print("Patch already applied.")
     raise SystemExit(0)
 
 old = """    let callbacks = expo.HostObjectCallbacks(
-  context, getter, set == nil ? nil : setterPointer, propertyNamesGetter, deallocate)"""
+      context, getter, set == nil ? nil : setterPointer, propertyNamesGetter, deallocate)"""
 
 new = """    // Xcode 27+: ternary over C function pointers is rejected; branch instead.
     let callbacks: expo.HostObjectCallbacks
@@ -35,10 +35,7 @@ new = """    // Xcode 27+: ternary over C function pointers is rejected; branch 
     }"""
 
 if old not in text:
-    raise SystemExit(
-        "ERROR: Expected Swift source not found. No changes made. "
-        "Inspect JavaScriptRuntime.swift before changing the patch."
-    )
+    raise SystemExit("ERROR: Expected Swift source not found; no changes made.")
 
 path.write_text(text.replace(old, new, 1))
 print("Patched expo-modules-jsi for Xcode 27.")
