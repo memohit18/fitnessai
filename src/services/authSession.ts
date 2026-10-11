@@ -2,6 +2,7 @@ import * as SecureStore from 'expo-secure-store';
 
 import { AUTH_SESSION_KEY } from '../constants/auth';
 import type { AuthSession } from '../types/auth';
+import { extractAuthSession } from '../utils/api';
 
 export async function saveSession(session: AuthSession): Promise<void> {
   await SecureStore.setItemAsync(AUTH_SESSION_KEY, JSON.stringify(session), {
@@ -32,10 +33,21 @@ export async function loadSession(): Promise<AuthSession | null> {
       return null;
     }
 
-    return {
+    // Prefer stored user; backfill name/id from JWT when older sessions omit them.
+    const fromToken = extractAuthSession({
       accessToken,
       refreshToken,
       user: parsed.user,
+    });
+
+    return {
+      accessToken,
+      refreshToken,
+      user: {
+        id: fromToken?.user.id ?? parsed.user.id,
+        email: parsed.user.email,
+        name: parsed.user.name?.trim() || fromToken?.user.name || null,
+      },
     };
   } catch {
     await clearSession();

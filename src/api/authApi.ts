@@ -1,8 +1,15 @@
 import axios from 'axios';
 
 import { env } from '../constants';
-import { store } from '../store';
-import type { LoginRequest, LoginResponse, SignupRequest, SignupResponse } from '../types/api/auth';
+import { attachAuthInterceptors } from '../services/tokenRefresh';
+import type {
+  LoginRequest,
+  LoginResponse,
+  MeResponse,
+  RefreshResponse,
+  SignupRequest,
+  SignupResponse,
+} from '../types/api/auth';
 
 export const authApi = axios.create({
   baseURL: env.authApiUrl,
@@ -13,7 +20,15 @@ export const authApi = axios.create({
 });
 
 authApi.interceptors.request.use((config) => {
-  const accessToken = store.getState().auth.accessToken;
+  // Refresh must not send a stale bearer token.
+  if (config.url?.includes('/auth/refresh')) {
+    return config;
+  }
+
+  // Lazy store access avoids init cycles with authSlice.
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { store } = require('../store') as typeof import('../store');
+  const accessToken = store.getState().auth?.accessToken;
 
   if (accessToken) {
     config.headers.Authorization = `Bearer ${accessToken}`;
@@ -22,6 +37,8 @@ authApi.interceptors.request.use((config) => {
   return config;
 });
 
+attachAuthInterceptors(authApi);
+
 export async function signup(payload: SignupRequest): Promise<SignupResponse> {
   const { data } = await authApi.post<SignupResponse>('/auth/signup', payload);
   return data;
@@ -29,5 +46,23 @@ export async function signup(payload: SignupRequest): Promise<SignupResponse> {
 
 export async function login(payload: LoginRequest): Promise<LoginResponse> {
   const { data } = await authApi.post<LoginResponse>('/auth/login', payload);
+  return data;
+}
+
+export async function refreshTokens(refreshToken: string): Promise<RefreshResponse> {
+  const { data } = await authApi.post<RefreshResponse>('/auth/refresh', {
+    refreshToken,
+  });
+  return data;
+}
+
+export async function getMe(accessToken?: string): Promise<MeResponse> {
+  const { data } = await authApi.get<MeResponse>('/auth/me', {
+    headers: accessToken
+      ? {
+          Authorization: `Bearer ${accessToken}`,
+        }
+      : undefined,
+  });
   return data;
 }

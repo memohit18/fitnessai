@@ -1,6 +1,7 @@
 import { NavigationContainer, DefaultTheme, DarkTheme } from '@react-navigation/native';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, type ReactNode } from 'react';
+import Toast from 'react-native-toast-message';
 import { Provider as ReduxProvider } from 'react-redux';
 
 import { ThemeProvider, useTheme } from '../contexts/ThemeContext';
@@ -49,11 +50,30 @@ function NavigationRoot() {
 export function AppProviders({ children }: { children?: ReactNode }) {
   useEffect(() => {
     configureGoogleSignIn();
+
+    // Hide Expo Dev Client floating gear so it doesn't cover the tab bar.
+    if (__DEV__) {
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const { requireOptionalNativeModule } = require('expo-modules-core') as {
+          requireOptionalNativeModule: (name: string) => {
+            setPreferencesAsync?: (settings: Record<string, boolean>) => Promise<void>;
+          } | null;
+        };
+        const prefs = requireOptionalNativeModule('DevMenuPreferences');
+        void prefs?.setPreferencesAsync?.({ showFloatingActionButton: false });
+      } catch {
+        // Dev menu not available outside development builds.
+      }
+    }
   }, []);
 
   return (
     <ReduxProvider store={store}>
-      <ThemeProvider>{children ?? <NavigationRoot />}</ThemeProvider>
+      <ThemeProvider>
+        {children ?? <NavigationRoot />}
+        <Toast />
+      </ThemeProvider>
     </ReduxProvider>
   );
 }

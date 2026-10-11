@@ -1,6 +1,8 @@
 import { createAsyncThunk, createSlice, type PayloadAction } from '@reduxjs/toolkit';
 
+import { isAccessTokenValid, isRefreshTokenValid } from '../../lib/auth/token';
 import { clearSession, loadSession, saveSession } from '../../services/authSession';
+import { enrichAuthSession } from '../../services/enrichAuthSession';
 import { signOutFromGoogle } from '../../services/googleAuth';
 import type { AuthSession } from '../../types/auth';
 
@@ -20,17 +22,53 @@ const initialState: AuthState = {
   user: null,
 };
 
-export const hydrateAuth = createAsyncThunk('auth/hydrate', async () => loadSession());
+function tokenRefresh() {
+  // Lazy require breaks store → authSlice → tokenRefresh → store cycles.
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  return require('../../services/tokenRefresh') as typeof import('../../services/tokenRefresh');
+}
+
+export const hydrateAuth = createAsyncThunk('auth/hydrate', async () => {
+  const { getValidAccessToken, scheduleProactiveTokenRefresh } = tokenRefresh();
+  const session = await loadSession();
+  if (!session) return null;
+
+  // Access expired → refresh before marking authenticated.
+  if (!isAccessTokenValid(session.accessToken)) {
+    if (!isRefreshTokenValid(session.refreshToken)) {
+      await clearSession();
+      return null;
+    }
+
+    const accessToken = await getValidAccessToken(session);
+    if (!accessToken) return null;
+
+    const refreshed = await loadSession();
+    if (!refreshed) return null;
+    const enriched = await enrichAuthSession(refreshed);
+    scheduleProactiveTokenRefresh();
+    return enriched;
+  }
+
+  const enriched = await enrichAuthSession(session);
+  scheduleProactiveTokenRefresh();
+  return enriched;
+});
 
 export const signIn = createAsyncThunk(
   'auth/signIn',
   async (session: AuthSession) => {
-    await saveSession(session);
-    return session;
+    const { scheduleProactiveTokenRefresh } = tokenRefresh();
+    const enriched = await enrichAuthSession(session);
+    await saveSession(enriched);
+    scheduleProactiveTokenRefresh();
+    return enriched;
   },
 );
 
 export const signOut = createAsyncThunk('auth/signOut', async () => {
+  const { clearRefreshTimer } = tokenRefresh();
+  clearRefreshTimer();
   await signOutFromGoogle();
   await clearSession();
 });
@@ -38,7 +76,14 @@ export const signOut = createAsyncThunk('auth/signOut', async () => {
 const authSlice = createSlice({
   name: 'auth',
   initialState,
-  reducers: {},
+  reducers: {
+    sessionRefreshed(state, action: PayloadAction<AuthSession>) {
+      state.status = 'authenticated';
+      state.accessToken = action.payload.accessToken;
+      state.refreshToken = action.payload.refreshToken;
+      state.user = action.payload.user;
+    },
+  },
   extraReducers: (builder) => {
     builder
       .addCase(hydrateAuth.fulfilled, (state, action) => {
@@ -71,8 +116,15 @@ const authSlice = createSlice({
         state.accessToken = null;
         state.refreshToken = null;
         state.user = null;
+      })
+      .addCase(signOut.rejected, (state) => {
+        state.status = 'unauthenticated';
+        state.accessToken = null;
+        state.refreshToken = null;
+        state.user = null;
       });
   },
 });
 
+export const { sessionRefreshed } = authSlice.actions;
 export default authSlice.reducer;

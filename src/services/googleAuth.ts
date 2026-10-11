@@ -1,26 +1,60 @@
-import {
-  GoogleSignin,
-  isErrorWithCode,
-  isSuccessResponse,
-  statusCodes,
-  type SignInSuccessResponse,
-} from '@react-native-google-signin/google-signin';
 import { Platform } from 'react-native';
 
 import { env } from '../constants';
 
+type GoogleUserData = {
+  idToken: string | null;
+  user: {
+    id: string;
+    email: string;
+    name: string | null;
+    photo: string | null;
+  };
+};
+
 export type GoogleSignInResult =
-  | { success: true; data: SignInSuccessResponse['data'] }
+  | { success: true; data: GoogleUserData }
   | { success: false; cancelled: boolean; message: string };
 
+type GoogleSignInModule = typeof import('@react-native-google-signin/google-signin');
+
+let googleModule: GoogleSignInModule | null | undefined;
+
+function loadGoogleModule(): GoogleSignInModule | null {
+  if (googleModule !== undefined) {
+    return googleModule;
+  }
+
+  try {
+    // Native module is only available in a rebuilt dev client.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    googleModule = require('@react-native-google-signin/google-signin') as GoogleSignInModule;
+  } catch {
+    googleModule = null;
+  }
+
+  return googleModule;
+}
+
 export function isGoogleSignInConfigured(): boolean {
+  if (!loadGoogleModule()) {
+    return false;
+  }
+
   if (Platform.OS === 'ios') {
     return Boolean(env.googleIosClientId && env.googleWebClientId);
   }
+
   return Boolean(env.googleWebClientId);
 }
 
 export function configureGoogleSignIn(): void {
+  const mod = loadGoogleModule();
+  if (!mod) {
+    console.warn('[GoogleSignIn] Native module unavailable. Rebuild the iOS app.');
+    return;
+  }
+
   if (!isGoogleSignInConfigured()) {
     console.warn(
       '[GoogleSignIn] Missing EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID (and iOS client ID on iOS).',
@@ -28,7 +62,7 @@ export function configureGoogleSignIn(): void {
     return;
   }
 
-  GoogleSignin.configure({
+  mod.GoogleSignin.configure({
     iosClientId: env.googleIosClientId,
     webClientId: env.googleWebClientId,
     offlineAccess: true,
@@ -36,6 +70,15 @@ export function configureGoogleSignIn(): void {
 }
 
 export async function signInWithGoogle(): Promise<GoogleSignInResult> {
+  const mod = loadGoogleModule();
+  if (!mod) {
+    return {
+      success: false,
+      cancelled: false,
+      message: 'Google Sign-In is unavailable. Rebuild the iOS app.',
+    };
+  }
+
   if (!isGoogleSignInConfigured()) {
     return {
       success: false,
@@ -46,22 +89,22 @@ export async function signInWithGoogle(): Promise<GoogleSignInResult> {
 
   try {
     if (Platform.OS === 'android') {
-      await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+      await mod.GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
     }
 
-    const response = await GoogleSignin.signIn();
+    const response = await mod.GoogleSignin.signIn();
 
-    if (!isSuccessResponse(response)) {
+    if (!mod.isSuccessResponse(response)) {
       return { success: false, cancelled: true, message: 'Sign in was cancelled.' };
     }
 
     return { success: true, data: response.data };
   } catch (error) {
-    if (isErrorWithCode(error)) {
+    if (mod.isErrorWithCode(error)) {
       switch (error.code) {
-        case statusCodes.IN_PROGRESS:
+        case mod.statusCodes.IN_PROGRESS:
           return { success: false, cancelled: false, message: 'Sign in already in progress.' };
-        case statusCodes.PLAY_SERVICES_NOT_AVAILABLE:
+        case mod.statusCodes.PLAY_SERVICES_NOT_AVAILABLE:
           return {
             success: false,
             cancelled: false,
@@ -85,8 +128,11 @@ export async function signInWithGoogle(): Promise<GoogleSignInResult> {
 }
 
 export async function signOutFromGoogle(): Promise<void> {
+  const mod = loadGoogleModule();
+  if (!mod) return;
+
   try {
-    await GoogleSignin.signOut();
+    await mod.GoogleSignin.signOut();
   } catch {
     // User may not be signed in with Google.
   }

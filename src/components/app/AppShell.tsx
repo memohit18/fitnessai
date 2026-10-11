@@ -1,61 +1,43 @@
-import { Ionicons } from '@expo/vector-icons';
-import { Modal, Pressable, StyleSheet, View, type ViewStyle } from 'react-native';
+import { StyleSheet, Text, View, type ViewStyle } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemeToggle } from '../ui/ThemeToggle';
 import { useTheme } from '../../contexts/ThemeContext';
-import { useSidebar } from '../../contexts/SidebarContext';
-import { AppSidebar } from './AppSidebar';
 
 interface AppShellProps {
   children: React.ReactNode;
+  title?: string;
   contentStyle?: ViewStyle;
+  hideHeader?: boolean;
+  backgroundColor?: string;
+  /** @deprecated Tab bar is owned by the root tab navigator. */
+  hideTabBar?: boolean;
 }
 
-export function AppShell({ children, contentStyle }: AppShellProps) {
+export function AppShell({
+  children,
+  title = 'ThinkTank',
+  contentStyle,
+  hideHeader = false,
+  backgroundColor,
+}: AppShellProps) {
   const { colors } = useTheme();
-  const { isOpen, openSidebar, closeSidebar, sidebarWidth } = useSidebar();
+  const rootBg = backgroundColor ?? colors.background;
 
   return (
-    <View style={[styles.root, { backgroundColor: colors.background }]}>
-      <SafeAreaView style={styles.main} edges={['top', 'right', 'bottom', 'left']}>
-        <View style={styles.topBar}>
-          <Pressable
-            accessibilityLabel="Open menu"
-            accessibilityRole="button"
-            hitSlop={8}
-            onPress={openSidebar}
-            style={[styles.menuButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
-          >
-            <Ionicons color={colors.text} name="menu" size={22} />
-          </Pressable>
-
-          <ThemeToggle />
-        </View>
+    <View style={[styles.root, { backgroundColor: rootBg }]}>
+      <SafeAreaView style={styles.main} edges={['top', 'right', 'left']}>
+        {!hideHeader ? (
+          <View style={styles.topBar}>
+            <Text style={[styles.title, { color: colors.text }]} numberOfLines={1}>
+              {title}
+            </Text>
+            <ThemeToggle />
+          </View>
+        ) : null}
 
         <View style={[styles.content, contentStyle]}>{children}</View>
       </SafeAreaView>
-
-      <Modal
-        animationType="fade"
-        onRequestClose={closeSidebar}
-        statusBarTranslucent
-        transparent
-        visible={isOpen}
-      >
-        <View style={styles.overlay}>
-          <View style={[styles.drawer, { width: sidebarWidth }]}>
-            <AppSidebar />
-          </View>
-
-          <Pressable
-            accessibilityLabel="Close menu"
-            accessibilityRole="button"
-            onPress={closeSidebar}
-            style={[styles.backdrop, { backgroundColor: 'rgba(0,0,0,0.5)' }]}
-          />
-        </View>
-      </Modal>
     </View>
   );
 }
@@ -75,26 +57,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 8,
   },
-  menuButton: {
-    alignItems: 'center',
-    borderRadius: 10,
-    borderWidth: 1,
-    height: 40,
-    justifyContent: 'center',
-    width: 40,
+  title: {
+    flex: 1,
+    fontSize: 18,
+    fontWeight: '700',
+    paddingRight: 12,
   },
   content: {
     flex: 1,
     paddingHorizontal: 20,
-  },
-  overlay: {
-    flex: 1,
-    flexDirection: 'row',
-  },
-  drawer: {
-    height: '100%',
-  },
-  backdrop: {
-    flex: 1,
   },
 });

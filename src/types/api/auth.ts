@@ -23,6 +23,9 @@ export interface AuthTokenPayload {
   refreshToken?: string;
   access_token?: string;
   refresh_token?: string;
+  /** Desktop/auth-service refresh shape */
+  access?: string;
+  refresh?: string;
   token?: string;
   user?: ApiAuthUser;
   data?: AuthTokenPayload & {
@@ -37,3 +40,16 @@ export type SignupResponse = AuthTokenPayload & {
 export type LoginResponse = AuthTokenPayload & {
   message?: string;
 };
+
+export type RefreshResponse = AuthTokenPayload & {
+  message?: string;
+};
+
+export interface MeResponse {
+  id: string;
+  email: string;
+  name: string;
+  role?: string;
+  avatar?: string | null;
+  isEmailVerified?: boolean;
+}

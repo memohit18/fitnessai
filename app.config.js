@@ -35,8 +35,22 @@ module.exports = {
       predictiveBackGestureEnabled: false,
     },
     plugins: [
-      'expo-dev-client',
+      [
+        'expo-dev-client',
+        {
+          toolsButton: false,
+        },
+      ],
       'expo-secure-store',
+      [
+        'expo-image-picker',
+        {
+          photosPermission:
+            'Allow ThinkTank to access your photos so you can upload meal and workout images.',
+          cameraPermission: false,
+          microphonePermission: false,
+        },
+      ],
       './plugins/withIosModularHeaders.js',
       ...(googleIosUrlScheme
         ? [

@@ -1,0 +1,21 @@
+/** Dark fitness home palette (lime accent). */
+export const fitnessPalette = {
+  bg: '#07140F',
+  surface: '#12201A',
+  surfaceElevated: '#1A2A22',
+  border: '#24362C',
+  text: '#FFFFFF',
+  textSecondary: '#9AA8A0',
+  textMuted: '#6B7A72',
+  lime: '#C8FF00',
+  limeSoft: '#9BE15D',
+  limeDim: 'rgba(200, 255, 0, 0.16)',
+  onLime: '#0A140F',
+  burn: '#FF4D6A',
+  active: '#F5C518',
+  hydrate: '#2EE6D6',
+  sleep: '#A78BFA',
+  hot: '#FF5C8A',
+  wave: '#2EE6D6',
+  dangerDot: '#FF3B30',
+} as const;

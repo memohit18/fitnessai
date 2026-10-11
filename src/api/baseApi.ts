@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 import { env } from '../constants';
-import { store } from '../store';
+import { attachAuthInterceptors } from '../services/tokenRefresh';
 
 export const baseApi = axios.create({
   baseURL: env.apiUrl,
@@ -12,7 +12,10 @@ export const baseApi = axios.create({
 });
 
 baseApi.interceptors.request.use((config) => {
-  const accessToken = store.getState().auth.accessToken;
+  // Lazy store access avoids init cycles with authSlice.
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { store } = require('../store') as typeof import('../store');
+  const accessToken = store.getState().auth?.accessToken;
 
   if (accessToken) {
     config.headers.Authorization = `Bearer ${accessToken}`;
@@ -20,3 +23,5 @@ baseApi.interceptors.request.use((config) => {
 
   return config;
 });
+
+attachAuthInterceptors(baseApi);

@@ -6,7 +6,11 @@ import { useAppDispatch, useAppSelector } from './store';
 
 export function useAuth() {
   const dispatch = useAppDispatch();
-  const { status, accessToken, refreshToken, user } = useAppSelector((state) => state.auth);
+  const auth = useAppSelector((state) => state.auth);
+  const status = auth?.status ?? 'hydrating';
+  const accessToken = auth?.accessToken ?? null;
+  const refreshToken = auth?.refreshToken ?? null;
+  const user = auth?.user ?? null;
 
   const signIn = useCallback(
     (session: AuthSession) => dispatch(signInAction(session)),
