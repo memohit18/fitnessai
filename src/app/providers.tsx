@@ -4,6 +4,7 @@ import { useEffect, type ReactNode } from 'react';
 import Toast from 'react-native-toast-message';
 import { Provider as ReduxProvider } from 'react-redux';
 
+import { VersionGate } from '../components/app/VersionGate';
 import { ThemeProvider, useTheme } from '../contexts/ThemeContext';
 import { RootNavigator } from '../navigation/RootNavigator';
 import { configureGoogleSignIn } from '../services/googleAuth';
@@ -71,7 +72,7 @@ export function AppProviders({ children }: { children?: ReactNode }) {
   return (
     <ReduxProvider store={store}>
       <ThemeProvider>
-        {children ?? <NavigationRoot />}
+        <VersionGate>{children ?? <NavigationRoot />}</VersionGate>
         <Toast />
       </ThemeProvider>
     </ReduxProvider>

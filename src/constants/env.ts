@@ -38,5 +38,10 @@ export const env = {
   googleIosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID ?? '',
   googleWebClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ?? '',
   googleIosUrlScheme: process.env.EXPO_PUBLIC_GOOGLE_IOS_URL_SCHEME ?? '',
+  /** Optional local fallback when GET /mobile/app-version is unavailable. */
+  minAppVersion: process.env.EXPO_PUBLIC_MIN_APP_VERSION ?? '',
+  latestAppVersion: process.env.EXPO_PUBLIC_LATEST_APP_VERSION ?? '',
+  iosStoreUrl: process.env.EXPO_PUBLIC_IOS_STORE_URL ?? '',
+  androidStoreUrl: process.env.EXPO_PUBLIC_ANDROID_STORE_URL ?? '',
   isDev: process.env.EXPO_PUBLIC_APP_ENV === 'development',
 } as const;

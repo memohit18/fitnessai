@@ -13,6 +13,7 @@ module.exports = {
   expo: {
     name: 'thinktank_mobile',
     slug: 'thinktank_mobile',
+    // Bump this for each store release. Remote gate compares against it.
     version: '1.0.0',
     scheme: 'thinktank',
     orientation: 'portrait',
@@ -21,10 +22,12 @@ module.exports = {
     ios: {
       supportsTablet: true,
       bundleIdentifier: 'com.thinktank.mobile',
+      buildNumber: '1',
       ...(iosGoogleServicesExists ? { googleServicesFile: iosGoogleServicesPath } : {}),
     },
     android: {
       package: 'com.thinktank.mobile',
+      versionCode: 1,
       ...(androidGoogleServicesExists ? { googleServicesFile: androidGoogleServicesPath } : {}),
       adaptiveIcon: {
         backgroundColor: '#E6F4FE',
