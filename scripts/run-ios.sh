@@ -91,10 +91,10 @@ open_device_ui
 APP="$(find_app || true)"
 if [[ "${FORCE_REBUILD:-}" == "1" || -z "${APP:-}" || ! -d "$APP" ]]; then
   build_app
-  APP="$ROOT/ios/build/Build/Products/Debug-iphonesimulator/thinktankmobile.app"
+  APP="$(find_app || true)"
 fi
 
-if [[ ! -d "$APP" ]]; then
+if [[ -z "${APP:-}" || ! -d "$APP" ]]; then
   echo "Could not find thinktankmobile.app after build." >&2
   exit 1
 fi
