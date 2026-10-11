@@ -1,24 +1,29 @@
 #!/usr/bin/env bash
-# Xcode 27 rejects ternary C-function-pointer expressions in expo-modules-jsi.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 FILE="$ROOT/node_modules/expo-modules-jsi/apple/Sources/ExpoModulesJSI/Runtime/JavaScriptRuntime.swift"
 
 if [[ ! -f "$FILE" ]]; then
+  echo "expo-modules-jsi source not found; skipping patch."
   exit 0
 fi
 
-if grep -q 'Xcode 27+: ternary over C function pointers' "$FILE"; then
-  exit 0
-fi
-
-python3 - <<PY
+python3 - "$FILE" <<'PYTHON'
+import sys
 from pathlib import Path
-path = Path("$FILE")
+
+path = Path(sys.argv[1])
 text = path.read_text()
+
+marker = "Xcode 27+: ternary over C function pointers"
+if marker in text:
+    print("Patch already applied.")
+    raise SystemExit(0)
+
 old = """    let callbacks = expo.HostObjectCallbacks(
-      context, getter, set == nil ? nil : setter, propertyNamesGetter, deallocate)"""
+  context, getter, set == nil ? nil : setterPointer, propertyNamesGetter, deallocate)"""
+
 new = """    // Xcode 27+: ternary over C function pointers is rejected; branch instead.
     let callbacks: expo.HostObjectCallbacks
     if set == nil {
@@ -26,10 +31,15 @@ new = """    // Xcode 27+: ternary over C function pointers is rejected; branch 
         context, getter, nil, propertyNamesGetter, deallocate)
     } else {
       callbacks = expo.HostObjectCallbacks(
-        context, getter, setter, propertyNamesGetter, deallocate)
+        context, getter, setterPointer, propertyNamesGetter, deallocate)
     }"""
+
 if old not in text:
-    raise SystemExit(0)
+    raise SystemExit(
+        "ERROR: Expected Swift source not found. No changes made. "
+        "Inspect JavaScriptRuntime.swift before changing the patch."
+    )
+
 path.write_text(text.replace(old, new, 1))
-print("Patched expo-modules-jsi for Xcode 27")
-PY
+print("Patched expo-modules-jsi for Xcode 27.")
+PYTHON
