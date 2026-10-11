@@ -44,6 +44,7 @@ module.exports = {
           toolsButton: false,
         },
       ],
+      'expo-font',
       'expo-secure-store',
       [
         'expo-image-picker',
