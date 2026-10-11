@@ -46,6 +46,8 @@
     "prebuild": "expo prebuild",
     "ios": "bash scripts/run-ios.sh",
     "ios:expo": "expo run:ios",
+    "ios:device": "expo run:ios --device",
+    "build:ios:preview": "eas build --platform ios --profile preview",
     "android": "expo run:android",
     "postinstall": "bash scripts/patch-expo-modules-jsi.sh"
   },
