@@ -1,5 +1,4 @@
 import Constants from 'expo-constants';
-import * as Application from 'expo-application';
 import { Linking, Platform } from 'react-native';
 
 import { fetchAppVersionConfig } from '../api/appVersionApi';
@@ -7,10 +6,8 @@ import { env } from '../constants';
 import { isVersionBelow } from '../lib/version/semver';
 import type { AppVersionConfig, VersionCheckResult } from '../types/appVersion';
 
+/** Installed semver from `expo.version` in app.config.js (embedded at build time). */
 export function getCurrentAppVersion(): string {
-  const native = Application.nativeApplicationVersion?.trim();
-  if (native) return native;
-
   const fromConfig = Constants.expoConfig?.version?.trim();
   if (fromConfig) return fromConfig;
 
