@@ -1,6 +1,6 @@
 # App version control
 
-ThinkTank Mobile can force or prompt users to update based on a remote version policy. This lets you block outdated builds without shipping a new binary just to change the gate.
+fitnessai can force or prompt users to update based on a remote version policy. This lets you block outdated builds without shipping a new binary just to change the gate.
 
 ## How it works
 

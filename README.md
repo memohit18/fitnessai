@@ -1,6 +1,6 @@
-# ThinkTank Mobile
+# fitnessai
 
-ThinkTank Mobile is the iOS and Android app for ThinkTank. It is built with **React Native** and **Expo SDK 56**, using a **native development build** (not Expo Go) so features like Google Sign-In use the official iOS/Android SDKs.
+fitnessai is the iOS and Android app for DIP (Discipline in Progress). It is built with **React Native** and **Expo SDK 56**, using a **native development build** (not Expo Go) so features like Google Sign-In use the official iOS/Android SDKs.
 
 ## Tech stack
 
@@ -28,7 +28,7 @@ ThinkTank Mobile is the iOS and Android app for ThinkTank. It is built with **Re
 
 ```bash
 git clone <repo-url>
-cd thinktank_mobile
+cd fitnessai
 npm install
 ```
 
