@@ -23,6 +23,10 @@ module.exports = {
       supportsTablet: true,
       bundleIdentifier: 'com.fitnessai.mobile',
       buildNumber: '1',
+      infoPlist: {
+        CFBundleDisplayName: 'DIP',
+        CFBundleName: 'DIP',
+      },
       ...(iosGoogleServicesExists ? { googleServicesFile: iosGoogleServicesPath } : {}),
     },
     android: {
@@ -50,11 +54,12 @@ module.exports = {
         'expo-image-picker',
         {
           photosPermission:
-            'Allow fitnessai to access your photos so you can upload meal and workout images.',
+            'Allow DIP to access your photos so you can upload meal and workout images.',
           cameraPermission: false,
           microphonePermission: false,
         },
       ],
+      './plugins/withAppDisplayName.js',
       './plugins/withIosModularHeaders.js',
       './plugins/withIosSceneLifecycle.js',
       ...(googleIosUrlScheme
