@@ -1,4 +1,4 @@
-const { withInfoPlist, withStringsXml } = require('expo/config-plugins');
+const { withInfoPlist, withStringsXml, withXcodeProject } = require('expo/config-plugins');
 
 const DISPLAY_NAME = 'DIP';
 
@@ -6,8 +6,20 @@ const DISPLAY_NAME = 'DIP';
 function withAppDisplayName(config) {
   config = withInfoPlist(config, (plistConfig) => {
     plistConfig.modResults.CFBundleDisplayName = DISPLAY_NAME;
-    plistConfig.modResults.CFBundleName = DISPLAY_NAME;
+    // Keep CFBundleName as the native product name. Renaming it to DIP
+    // would diverge from the fitnessai module and break the scene delegate.
     return plistConfig;
+  });
+
+  config = withXcodeProject(config, (projectConfig) => {
+    const configurations = projectConfig.modResults.pbxXCBuildConfigurationSection();
+    for (const key of Object.keys(configurations)) {
+      const buildSettings = configurations[key].buildSettings;
+      if (buildSettings?.PRODUCT_NAME) {
+        buildSettings.INFOPLIST_KEY_CFBundleDisplayName = DISPLAY_NAME;
+      }
+    }
+    return projectConfig;
   });
 
   config = withStringsXml(config, (stringsConfig) => {

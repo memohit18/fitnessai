@@ -25,7 +25,6 @@ module.exports = {
       buildNumber: '1',
       infoPlist: {
         CFBundleDisplayName: 'DIP',
-        CFBundleName: 'DIP',
       },
       ...(iosGoogleServicesExists ? { googleServicesFile: iosGoogleServicesPath } : {}),
     },
