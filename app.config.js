@@ -56,6 +56,7 @@ module.exports = {
         },
       ],
       './plugins/withIosModularHeaders.js',
+      './plugins/withIosSceneLifecycle.js',
       ...(googleIosUrlScheme
         ? [
             [
