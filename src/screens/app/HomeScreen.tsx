@@ -20,6 +20,7 @@ import Toast from 'react-native-toast-message';
 
 import { getDailyDashboard } from '../../api/dashboardApi';
 import { getHydrationToday, logHydration } from '../../api/hydrationApi';
+import { getProfile } from '../../api/profileApi';
 import { AppShell } from '../../components/app/AppShell';
 import { AchievementsCard } from '../../components/fitness/dashboard/AchievementsCard';
 import { ComplianceCard } from '../../components/fitness/dashboard/ComplianceCard';
@@ -32,7 +33,9 @@ import { WaterTrackerCard } from '../../components/fitness/dashboard/WaterTracke
 import { WorkoutProgressCard } from '../../components/fitness/dashboard/WorkoutProgressCard';
 import { HomeTopBar } from '../../components/fitness/home/HomeTopBar';
 import { fitnessPalette as p } from '../../constants/fitnessPalette';
-import { useAuth } from '../../hooks';
+import { useAuth, useAppDispatch } from '../../hooks';
+import { loadSession, saveSession } from '../../services/authSession';
+import { userProfileUpdated } from '../../store/slices/authSlice';
 import type { AppStackParamList, MainTabParamList } from '../../navigation/types';
 import type {
   DailyDashboard,
@@ -58,6 +61,7 @@ function soon(title: string, detail = 'Coming soon on mobile.') {
 
 export function HomeScreen() {
   const navigation = useNavigation<HomeNavigation>();
+  const dispatch = useAppDispatch();
   const { user } = useAuth();
   const [dashboard, setDashboard] = useState<DailyDashboard | null>(null);
   const [hydration, setHydration] = useState<HydrationToday | null>(null);
@@ -84,12 +88,34 @@ export function HomeScreen() {
     }
 
     try {
-      const [dash, water] = await Promise.all([
+      const [dash, water, profile] = await Promise.all([
         getDailyDashboard(),
         getHydrationToday().catch(() => null),
+        getProfile().catch(() => null),
       ]);
       setDashboard(dash);
       setHydration(water);
+      if (profile) {
+        const nextName = profile.name.trim() || null;
+        const nextAvatar = profile.avatar;
+        dispatch(
+          userProfileUpdated({
+            ...(nextName ? { name: nextName } : {}),
+            avatar: nextAvatar,
+          }),
+        );
+        const session = await loadSession();
+        if (session) {
+          await saveSession({
+            ...session,
+            user: {
+              ...session.user,
+              ...(nextName ? { name: nextName } : {}),
+              avatar: nextAvatar,
+            },
+          });
+        }
+      }
       setStatus('ready');
     } catch (err) {
       setError(getApiErrorMessage(err, 'Unable to load dashboard.'));
@@ -97,7 +123,7 @@ export function HomeScreen() {
     } finally {
       setRefreshing(false);
     }
-  }, []);
+  }, [dispatch]);
 
   useFocusEffect(
     useCallback(() => {
