@@ -61,6 +61,7 @@ module.exports = {
       './plugins/withAppDisplayName.js',
       './plugins/withIosModularHeaders.js',
       './plugins/withIosSceneLifecycle.js',
+      './plugins/withIosAppIcon.js',
       ...(googleIosUrlScheme
         ? [
             [
