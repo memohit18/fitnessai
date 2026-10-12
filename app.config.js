@@ -11,7 +11,7 @@ const androidGoogleServicesExists = fs.existsSync(path.join(__dirname, androidGo
 /** @type {import('expo/config').ExpoConfig} */
 module.exports = {
   expo: {
-    name: 'thinktank_mobile',
+    name: 'DIP',
     slug: 'thinktank_mobile',
     // Bump this for each store release. Remote gate compares against it.
     version: '1.0.0',

@@ -16,7 +16,7 @@ interface AppShellProps {
 
 export function AppShell({
   children,
-  title = 'ThinkTank',
+  title = 'DIP',
   contentStyle,
   hideHeader = false,
   backgroundColor,

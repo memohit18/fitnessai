@@ -12,7 +12,7 @@ export function Logo() {
         <View style={[styles.line, styles.lineMiddle]} />
         <View style={styles.line} />
       </View>
-      <Text style={[styles.brand, { color: colors.text }]}>ThinkTank</Text>
+      <Text style={[styles.brand, { color: colors.text }]}>DIP</Text>
     </View>
   );
 }

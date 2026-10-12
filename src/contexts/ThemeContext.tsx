@@ -28,12 +28,36 @@ interface ThemeContextValue {
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
+export function ForcedTheme({
+  mode,
+  children,
+}: {
+  mode: ThemeMode;
+  children: ReactNode;
+}) {
+  const parent = useContext(ThemeContext);
+  const colors = mode === 'dark' ? darkColors : lightColors;
+
+  const value = useMemo<ThemeContextValue>(
+    () => ({
+      mode,
+      resolvedTheme: mode,
+      colors,
+      setMode: parent?.setMode ?? (() => {}),
+      toggleMode: parent?.toggleMode ?? (() => {}),
+    }),
+    [mode, colors, parent],
+  );
+
+  return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
+}
+
 function isThemeMode(value: string | null): value is ThemeMode {
   return value === 'light' || value === 'dark';
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [mode, setModeState] = useState<ThemeMode>('dark');
+  const [mode, setModeState] = useState<ThemeMode>('light');
 
   useEffect(() => {
     void getStorageString(THEME_STORAGE_KEY).then((stored) => {

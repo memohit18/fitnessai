@@ -14,6 +14,7 @@ import { useTheme } from '../../contexts/ThemeContext';
 interface AuthInputProps extends TextInputProps {
   label: string;
   error?: string;
+  dense?: boolean;
   leftIcon: keyof typeof Ionicons.glyphMap;
   rightAction?: {
     icon: keyof typeof Ionicons.glyphMap;
@@ -25,6 +26,7 @@ interface AuthInputProps extends TextInputProps {
 export function AuthInput({
   label,
   error,
+  dense,
   leftIcon,
   rightAction,
   labelRight,
@@ -34,14 +36,15 @@ export function AuthInput({
   const { colors } = useTheme();
 
   return (
-    <View style={styles.wrapper}>
+    <View style={[styles.wrapper, dense && styles.wrapperDense]}>
       <View style={styles.labelRow}>
-        <Text style={[styles.label, { color: colors.text }]}>{label}</Text>
+        <Text style={[styles.label, dense && styles.labelDense, { color: colors.text }]}>{label}</Text>
         {labelRight}
       </View>
       <View
         style={[
           styles.inputRow,
+          dense && styles.inputRowDense,
           {
             backgroundColor: colors.inputBackground,
             borderColor: error ? colors.error : colors.inputBorder,
@@ -51,7 +54,7 @@ export function AuthInput({
         <Ionicons color={colors.placeholder} name={leftIcon} size={18} style={styles.leftIcon} />
         <TextInput
           placeholderTextColor={colors.placeholder}
-          style={[styles.input, { color: colors.text }, style]}
+          style={[styles.input, dense && styles.inputDense, { color: colors.text }, style]}
           {...props}
         />
         {rightAction ? (
@@ -68,6 +71,7 @@ export function AuthInput({
 export function PasswordInput({
   label,
   error,
+  dense,
   labelRight,
   ...props
 }: Omit<AuthInputProps, 'leftIcon' | 'rightAction' | 'secureTextEntry'>) {
@@ -75,6 +79,7 @@ export function PasswordInput({
 
   return (
     <AuthInput
+      dense={dense}
       error={error}
       label={label}
       labelRight={labelRight}
@@ -93,6 +98,9 @@ const styles = StyleSheet.create({
   wrapper: {
     gap: 8,
   },
+  wrapperDense: {
+    gap: 4,
+  },
   labelRow: {
     alignItems: 'center',
     flexDirection: 'row',
@@ -102,6 +110,9 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
   },
+  labelDense: {
+    fontSize: 12,
+  },
   inputRow: {
     alignItems: 'center',
     borderRadius: 10,
@@ -110,6 +121,10 @@ const styles = StyleSheet.create({
     minHeight: 52,
     paddingHorizontal: 14,
   },
+  inputRowDense: {
+    minHeight: 40,
+    paddingHorizontal: 12,
+  },
   leftIcon: {
     marginRight: 10,
   },
@@ -117,6 +132,10 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 15,
     paddingVertical: 14,
+  },
+  inputDense: {
+    fontSize: 14,
+    paddingVertical: 6,
   },
   rightAction: {
     marginLeft: 8,

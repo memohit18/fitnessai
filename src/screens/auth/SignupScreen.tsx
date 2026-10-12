@@ -136,7 +136,7 @@ export function SignupScreen() {
       <View style={styles.hero}>
         <Text style={[styles.title, { color: colors.text }]}>Create account</Text>
         <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-          Join ThinkTank and start building ideas
+          Start your discipline in progress.
         </Text>
       </View>
 

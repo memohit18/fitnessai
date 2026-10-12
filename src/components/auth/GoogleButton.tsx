@@ -5,11 +5,12 @@ import { useTheme } from '../../contexts/ThemeContext';
 
 interface SocialButtonProps {
   label: string;
+  compact?: boolean;
   disabled?: boolean;
   onPress: () => void;
 }
 
-export function GoogleButton({ label, disabled, onPress }: SocialButtonProps) {
+export function GoogleButton({ label, compact, disabled, onPress }: SocialButtonProps) {
   const { colors } = useTheme();
 
   return (
@@ -19,6 +20,7 @@ export function GoogleButton({ label, disabled, onPress }: SocialButtonProps) {
       onPress={onPress}
       style={({ pressed }) => [
         styles.button,
+        compact && styles.buttonCompact,
         {
           backgroundColor: colors.socialButtonBg,
           borderColor: colors.border,
@@ -42,6 +44,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     minHeight: 52,
     paddingHorizontal: 20,
+  },
+  buttonCompact: {
+    minHeight: 42,
   },
   label: {
     fontSize: 15,

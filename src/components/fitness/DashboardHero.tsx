@@ -24,7 +24,7 @@ export function DashboardHero({ name }: DashboardHeroProps) {
         style={StyleSheet.absoluteFill}
       />
       <View style={styles.content}>
-        <Text style={[styles.eyebrow, { color: colors.primary }]}>ThinkTank Fitness</Text>
+        <Text style={[styles.eyebrow, { color: colors.primary }]}>Discipline in Progress</Text>
         <Text style={[styles.title, { color: colors.text }]}>Hello, {firstName}</Text>
         <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
           Your meals, workouts, hydration, and progress — built for the day ahead.

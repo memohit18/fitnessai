@@ -4,10 +4,10 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import {
+  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -16,12 +16,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { z } from 'zod';
 
 import { googleLogin, login } from '../../api/authApi';
-import { AuthBackground } from '../../components/auth/AuthBackground';
 import { AuthInput, PasswordInput } from '../../components/auth/AuthInput';
 import { Checkbox } from '../../components/auth/Checkbox';
 import { GoogleButton } from '../../components/auth/GoogleButton';
 import { GradientButton } from '../../components/auth/GradientButton';
-import { Logo } from '../../components/auth/Logo';
+import { WavingIllustration } from '../../components/auth/WavingIllustration';
 import { ThemeToggle } from '../../components/ui/ThemeToggle';
 import { useAuth } from '../../hooks';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -119,37 +118,33 @@ export function LoginScreen() {
 
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
-      <AuthBackground />
-
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.topBar}>
           <ThemeToggle />
         </View>
-
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           style={styles.flex}
         >
-          <ScrollView
-            contentContainerStyle={styles.scrollContent}
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
-          >
-            <View
-              style={[
-                styles.card,
-                {
-                  backgroundColor: colors.surface,
-                  borderColor: colors.border,
-                  shadowColor: colors.primary,
-                },
-              ]}
-            >
-              <Logo />
+          <View style={styles.content}>
+            <View style={styles.hero}>
+              <View style={styles.brandBlock}>
+                <Image source={require('../../../assets/icon.png')} style={styles.logo} />
+                <Text style={[styles.wordmark, { color: colors.text }]}>DIP</Text>
+                <Text style={[styles.tagline, { color: colors.textSecondary }]}>
+                  Discipline in Progress
+                </Text>
+                <View style={[styles.track, { backgroundColor: colors.border }]}>
+                  <View style={[styles.trackFill, { backgroundColor: colors.primary }]} />
+                </View>
+              </View>
+              <WavingIllustration />
+            </View>
 
-              <Text style={[styles.title, { color: colors.text }]}>Welcome Back</Text>
+            <View style={styles.formBlock}>
+              <Text style={[styles.title, { color: colors.text }]}>Sign in</Text>
               <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-                Sign in to access your secure workspace.
+                Pick up where you left off.
               </Text>
 
               <View style={styles.form}>
@@ -224,8 +219,9 @@ export function LoginScreen() {
                   onPress={onGoogleSignIn}
                 />
               </View>
+            </View>
 
-              <View style={styles.footer}>
+            <View style={styles.footer}>
                 <Text style={[styles.footerText, { color: colors.textSecondary }]}>
                   Don&apos;t have an account?{' '}
                 </Text>
@@ -233,8 +229,7 @@ export function LoginScreen() {
                   <Text style={[styles.footerLink, { color: colors.accent }]}>Sign Up</Text>
                 </Pressable>
               </View>
-            </View>
-          </ScrollView>
+          </View>
         </KeyboardAvoidingView>
       </SafeAreaView>
     </View>
@@ -256,36 +251,68 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 4,
   },
-  scrollContent: {
-    flexGrow: 1,
-    justifyContent: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-  },
-  card: {
-    borderRadius: 20,
-    borderWidth: 1,
-    elevation: 8,
+  content: {
+    flex: 1,
+    justifyContent: 'space-between',
     paddingHorizontal: 24,
-    paddingVertical: 32,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.15,
-    shadowRadius: 24,
+    paddingBottom: 12,
+    paddingTop: 8,
+  },
+  hero: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  brandBlock: {
+    flex: 1,
+    paddingBottom: 8,
+  },
+  logo: {
+    borderRadius: 12,
+    height: 44,
+    marginBottom: 8,
+    width: 44,
+  },
+  wordmark: {
+    fontSize: 48,
+    fontWeight: '800',
+    letterSpacing: 1.6,
+  },
+  tagline: {
+    fontSize: 12,
+    fontWeight: '600',
+    letterSpacing: 1.2,
+    marginTop: 4,
+    textTransform: 'uppercase',
+  },
+  track: {
+    borderRadius: 99,
+    height: 4,
+    marginTop: 12,
+    overflow: 'hidden',
+    width: 112,
+  },
+  trackFill: {
+    borderRadius: 99,
+    height: 4,
+    width: '42%',
+  },
+  formBlock: {
+    flex: 1,
+    justifyContent: 'center',
   },
   title: {
-    fontSize: 28,
+    fontSize: 22,
     fontWeight: '700',
-    marginBottom: 8,
-    textAlign: 'center',
+    marginBottom: 4,
   },
   subtitle: {
     fontSize: 15,
-    lineHeight: 22,
-    marginBottom: 28,
-    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 16,
   },
   form: {
-    gap: 18,
+    gap: 14,
   },
   submitError: {
     fontSize: 14,
@@ -314,7 +341,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexDirection: 'row',
     justifyContent: 'center',
-    marginTop: 28,
+    paddingTop: 8,
   },
   footerText: {
     fontSize: 14,

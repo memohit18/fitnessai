@@ -5,13 +5,14 @@ import { useTheme } from '../../contexts/ThemeContext';
 
 interface GradientButtonProps {
   label: string;
+  compact?: boolean;
   disabled?: boolean;
   loading?: boolean;
   onPress: () => void;
   style?: ViewStyle;
 }
 
-export function GradientButton({ label, disabled, loading, onPress, style }: GradientButtonProps) {
+export function GradientButton({ label, compact, disabled, loading, onPress, style }: GradientButtonProps) {
   const { colors } = useTheme();
 
   return (
@@ -25,12 +26,14 @@ export function GradientButton({ label, disabled, loading, onPress, style }: Gra
         colors={[colors.primary, colors.primaryEnd]}
         end={{ x: 1, y: 0 }}
         start={{ x: 0, y: 0 }}
-        style={styles.gradient}
+        style={[styles.gradient, compact && styles.gradientCompact]}
       >
         {loading ? (
           <ActivityIndicator color={colors.primaryText} />
         ) : (
-          <Text style={[styles.label, { color: colors.primaryText }]}>{label}</Text>
+          <Text style={[styles.label, compact && styles.labelCompact, { color: colors.primaryText }]}>
+            {label}
+          </Text>
         )}
       </LinearGradient>
     </Pressable>
@@ -48,8 +51,14 @@ const styles = StyleSheet.create({
     minHeight: 52,
     paddingHorizontal: 20,
   },
+  gradientCompact: {
+    minHeight: 42,
+  },
   label: {
     fontSize: 16,
     fontWeight: '700',
+  },
+  labelCompact: {
+    fontSize: 15,
   },
 });

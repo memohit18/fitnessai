@@ -90,7 +90,7 @@ export function VersionGate({ children }: VersionGateProps) {
       <View style={styles.center}>
         <Text style={styles.eyebrow}>Update required</Text>
         <Text style={styles.title}>
-          {forceConfig.title?.trim() || 'Please update ThinkTank'}
+          {forceConfig.title?.trim() || 'Please update DIP'}
         </Text>
         <Text style={styles.muted}>
           {forceConfig.message?.trim() ||
