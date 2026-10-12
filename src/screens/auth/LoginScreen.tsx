@@ -8,6 +8,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -123,10 +124,15 @@ export function LoginScreen() {
           <ThemeToggle />
         </View>
         <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.flex}
         >
-          <View style={styles.content}>
+          <ScrollView
+            contentContainerStyle={styles.content}
+            keyboardDismissMode="interactive"
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
             <View style={styles.hero}>
               <View style={styles.brandBlock}>
                 <Image source={require('../../../assets/icon.png')} style={styles.logo} />
@@ -229,7 +235,7 @@ export function LoginScreen() {
                   <Text style={[styles.footerLink, { color: colors.accent }]}>Sign Up</Text>
                 </Pressable>
               </View>
-          </View>
+          </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
     </View>
@@ -252,10 +258,10 @@ const styles = StyleSheet.create({
     paddingTop: 4,
   },
   content: {
-    flex: 1,
+    flexGrow: 1,
     justifyContent: 'space-between',
     paddingHorizontal: 24,
-    paddingBottom: 12,
+    paddingBottom: 24,
     paddingTop: 8,
   },
   hero: {
@@ -298,8 +304,7 @@ const styles = StyleSheet.create({
     width: '42%',
   },
   formBlock: {
-    flex: 1,
-    justifyContent: 'center',
+    marginTop: 28,
   },
   title: {
     fontSize: 22,
