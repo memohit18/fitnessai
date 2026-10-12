@@ -49,6 +49,24 @@ export async function login(payload: LoginRequest): Promise<LoginResponse> {
   return data;
 }
 
+export async function googleLogin(payload: {
+  idToken: string;
+  deviceType: 'mobile';
+  deviceName: string;
+}): Promise<LoginResponse> {
+  const { data } = await authApi.post<LoginResponse>('/auth/google/login', payload);
+  return data;
+}
+
+export async function googleSignup(payload: {
+  idToken: string;
+  deviceType: 'mobile';
+  deviceName: string;
+}): Promise<SignupResponse> {
+  const { data } = await authApi.post<SignupResponse>('/auth/google/signup', payload);
+  return data;
+}
+
 export async function refreshTokens(refreshToken: string): Promise<RefreshResponse> {
   const { data } = await authApi.post<RefreshResponse>('/auth/refresh', {
     refreshToken,

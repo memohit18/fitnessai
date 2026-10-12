@@ -6,7 +6,8 @@ import { Controller, useForm } from 'react-hook-form';
 import { Alert, StyleSheet, Text, View } from 'react-native';
 import { z } from 'zod';
 
-import { signup } from '../../api/authApi';
+import { googleLogin, googleSignup, signup } from '../../api/authApi';
+import { GoogleButton } from '../../components/auth/GoogleButton';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Screen } from '../../components/ui/Screen';
@@ -14,6 +15,8 @@ import { ThemeToggle } from '../../components/ui/ThemeToggle';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useAuth } from '../../hooks';
 import type { AuthStackParamList } from '../../navigation/types';
+import { getDeviceName, getDeviceType } from '../../services/deviceInfo';
+import { signInWithGoogle } from '../../services/googleAuth';
 import { extractAuthSession, getApiErrorMessage } from '../../utils/api';
 
 const signupSchema = z
@@ -36,6 +39,7 @@ export function SignupScreen() {
   const { colors } = useTheme();
   const { signIn } = useAuth();
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [googleLoading, setGoogleLoading] = useState(false);
 
   const {
     control,
@@ -76,6 +80,48 @@ export function SignupScreen() {
     } catch (error) {
       const message = getApiErrorMessage(error, 'Unable to create account.');
       setSubmitError(message);
+    }
+  };
+
+  const onGoogleSignUp = async () => {
+    setSubmitError(null);
+    setGoogleLoading(true);
+    try {
+      const result = await signInWithGoogle();
+      if (!result.success) {
+        if (!result.cancelled) setSubmitError(result.message);
+        return;
+      }
+
+      const idToken = result.data.idToken;
+      if (!idToken) {
+        setSubmitError('Google did not return a sign-in token.');
+        return;
+      }
+
+      const device = {
+        idToken,
+        deviceType: getDeviceType(),
+        deviceName: getDeviceName(),
+      };
+
+      await googleSignup(device);
+      const response = await googleLogin(device);
+      const session = extractAuthSession(response, result.data.user.email);
+      if (!session) {
+        Alert.alert(
+          'Account created',
+          'Your Google account was created. Please sign in.',
+          [{ text: 'Sign in', onPress: () => navigation.navigate('Login') }],
+        );
+        return;
+      }
+
+      await signIn(session);
+    } catch (error) {
+      setSubmitError(getApiErrorMessage(error, 'Unable to sign up with Google.'));
+    } finally {
+      setGoogleLoading(false);
     }
   };
 
@@ -171,9 +217,15 @@ export function SignupScreen() {
         ) : null}
 
         <Button
-          disabled={isSubmitting}
+          disabled={isSubmitting || googleLoading}
           label={isSubmitting ? 'Creating account...' : 'Create account'}
           onPress={handleSubmit(onSubmit)}
+        />
+
+        <GoogleButton
+          disabled={googleLoading || isSubmitting}
+          label={googleLoading ? 'Signing up...' : 'Sign up with Google'}
+          onPress={() => void onGoogleSignUp()}
         />
       </View>
 

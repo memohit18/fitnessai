@@ -36,7 +36,7 @@ export const env = {
     'EXPO_PUBLIC_AUTH_SCHEME',
   ),
   googleIosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID ?? '',
-  googleWebClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ?? '',
+  googleWebClientId: process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID ?? '',
   googleIosUrlScheme: process.env.EXPO_PUBLIC_GOOGLE_IOS_URL_SCHEME ?? '',
   /** Optional local fallback when GET /mobile/app-version is unavailable. */
   minAppVersion: process.env.EXPO_PUBLIC_MIN_APP_VERSION ?? '',

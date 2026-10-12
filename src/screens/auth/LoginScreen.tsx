@@ -4,7 +4,6 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import {
-  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -16,7 +15,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { z } from 'zod';
 
-import { login } from '../../api/authApi';
+import { googleLogin, login } from '../../api/authApi';
 import { AuthBackground } from '../../components/auth/AuthBackground';
 import { AuthInput, PasswordInput } from '../../components/auth/AuthInput';
 import { Checkbox } from '../../components/auth/Checkbox';
@@ -84,20 +83,37 @@ export function LoginScreen() {
   };
 
   const onGoogleSignIn = async () => {
+    setSubmitError(null);
     setGoogleLoading(true);
-    const result = await signInWithGoogle();
-    setGoogleLoading(false);
+    try {
+      const result = await signInWithGoogle();
+      if (!result.success) {
+        if (!result.cancelled) setSubmitError(result.message);
+        return;
+      }
 
-    if (result.success) {
-      Alert.alert(
-        'Google Sign-In',
-        'Google sign-in needs to be linked with your backend login API.',
-      );
-      return;
-    }
+      const idToken = result.data.idToken;
+      if (!idToken) {
+        setSubmitError('Google did not return a sign-in token.');
+        return;
+      }
 
-    if (!result.cancelled) {
-      Alert.alert('Google Sign-In', result.message);
+      const response = await googleLogin({
+        idToken,
+        deviceType: getDeviceType(),
+        deviceName: getDeviceName(),
+      });
+      const session = extractAuthSession(response, result.data.user.email);
+      if (!session) {
+        setSubmitError('Google sign-in succeeded but no access token was returned.');
+        return;
+      }
+
+      await signIn(session);
+    } catch (error) {
+      setSubmitError(getApiErrorMessage(error, 'Unable to sign in with Google.'));
+    } finally {
+      setGoogleLoading(false);
     }
   };
 

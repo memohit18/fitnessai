@@ -41,10 +41,6 @@ export function isGoogleSignInConfigured(): boolean {
     return false;
   }
 
-  if (Platform.OS === 'ios') {
-    return Boolean(env.googleIosClientId && env.googleWebClientId);
-  }
-
   return Boolean(env.googleWebClientId);
 }
 
@@ -57,15 +53,17 @@ export function configureGoogleSignIn(): void {
 
   if (!isGoogleSignInConfigured()) {
     console.warn(
-      '[GoogleSignIn] Missing EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID (and iOS client ID on iOS).',
+      '[GoogleSignIn] Missing EXPO_PUBLIC_GOOGLE_CLIENT_ID.',
     );
     return;
   }
 
+  const iosClientId = env.googleIosClientId || env.googleWebClientId;
+
   mod.GoogleSignin.configure({
-    iosClientId: env.googleIosClientId,
     webClientId: env.googleWebClientId,
-    offlineAccess: true,
+    ...(iosClientId ? { iosClientId } : {}),
+    offlineAccess: false,
   });
 }
 
