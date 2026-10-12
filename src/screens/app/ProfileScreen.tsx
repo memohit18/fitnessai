@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -25,10 +25,13 @@ export function ProfileScreen() {
   const { user, signOut } = useAuth();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
+  const editOpenRef = useRef(false);
+  editOpenRef.current = editOpen;
   const [avatar, setAvatar] = useState<string | null>(user?.avatar ?? null);
   const [displayName, setDisplayName] = useState(
     user?.name?.trim() || 'User',
   );
+  const [phone, setPhone] = useState<string | null>(null);
 
   const email = user?.email ?? '—';
 
@@ -38,10 +41,11 @@ export function ProfileScreen() {
       void (async () => {
         try {
           const profile = await getProfile();
-          if (!active) return;
+          if (!active || editOpenRef.current) return;
           const nextName = profile.name?.trim() || user?.name?.trim() || 'User';
           const nextAvatar = profile.avatar ?? null;
           setDisplayName(nextName);
+          setPhone(profile.phone);
           setAvatar(nextAvatar);
           dispatch(
             userProfileUpdated({
@@ -110,6 +114,7 @@ export function ProfileScreen() {
         <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>Account</Text>
           <DetailRow label="Name" value={displayName} colors={colors} />
+          <DetailRow label="Phone" value={phone?.trim() || '—'} colors={colors} />
           <DetailRow label="Email" value={email} colors={colors} />
         </View>
 
@@ -140,10 +145,12 @@ export function ProfileScreen() {
         email={email === '—' ? '' : email}
         initialAvatar={avatar}
         initialName={displayName === 'User' ? '' : displayName}
+        initialPhone={phone}
         visible={editOpen}
         onClose={() => setEditOpen(false)}
-        onSaved={({ name, avatar: nextAvatar }) => {
+        onSaved={({ name, phone: nextPhone, avatar: nextAvatar }) => {
           setDisplayName(name.trim() || 'User');
+          setPhone(nextPhone);
           setAvatar(nextAvatar);
         }}
       />

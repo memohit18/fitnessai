@@ -47,7 +47,7 @@ Edit `.env` with your values:
 | `EXPO_PUBLIC_API_TIMEOUT_MS` | Request timeout in ms |
 | `EXPO_PUBLIC_AUTH_SCHEME` | Deep link scheme (`thinktank`) |
 | `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID` | iOS OAuth client ID |
-| `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` | Web OAuth client ID (required on iOS for `idToken`) |
+| `EXPO_PUBLIC_GOOGLE_CLIENT_ID` | Web OAuth client ID (required on iOS for `idToken`) |
 | `EXPO_PUBLIC_GOOGLE_IOS_URL_SCHEME` | `REVERSED_CLIENT_ID` from `GoogleService-Info.plist` |
 
 ### 3. Google Sign-In (native)

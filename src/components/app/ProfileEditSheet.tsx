@@ -1,6 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Image,
+  InteractionManager,
   Modal,
   Pressable,
   ScrollView,
@@ -17,7 +19,10 @@ import { updateProfile } from '../../api/profileApi';
 import { uploadImage } from '../../api/imagesApi';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useAppDispatch } from '../../hooks';
-import { pickAndPrepareImage } from '../../services/pickAndPrepareImage';
+import {
+  pickAndPrepareImage,
+  type PreparedImage,
+} from '../../services/pickAndPrepareImage';
 import { saveSession, loadSession } from '../../services/authSession';
 import { userProfileUpdated } from '../../store/slices/authSlice';
 import { getApiErrorMessage } from '../../utils/api';
@@ -26,15 +31,17 @@ type ProfileEditSheetProps = {
   visible: boolean;
   email: string;
   initialName: string;
+  initialPhone?: string | null;
   initialAvatar?: string | null;
   onClose: () => void;
-  onSaved: (next: { name: string; avatar: string | null }) => void;
+  onSaved: (next: { name: string; phone: string | null; avatar: string | null }) => void;
 };
 
 export function ProfileEditSheet({
   visible,
   email,
   initialName,
+  initialPhone,
   initialAvatar,
   onClose,
   onSaved,
@@ -42,27 +49,55 @@ export function ProfileEditSheet({
   const { colors } = useTheme();
   const dispatch = useAppDispatch();
   const [name, setName] = useState(initialName);
+  const [phone, setPhone] = useState(initialPhone ?? '');
   const [avatar, setAvatar] = useState<string | null>(initialAvatar ?? null);
+  const [previewUri, setPreviewUri] = useState<string | null>(null);
+  const [pendingPhoto, setPendingPhoto] = useState<PreparedImage | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const wasVisible = useRef(false);
 
   useEffect(() => {
-    if (!visible) return;
-    setName(initialName);
-    setAvatar(initialAvatar ?? null);
-    setCurrentPassword('');
-    setNewPassword('');
-    setConfirmPassword('');
-  }, [visible, initialName, initialAvatar]);
+    if (visible && !wasVisible.current) {
+      setName(initialName);
+      setPhone(initialPhone ?? '');
+      setAvatar(initialAvatar ?? null);
+      setPreviewUri(null);
+      setPendingPhoto(null);
+      setShowPassword(false);
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+    }
+    wasVisible.current = visible;
+  }, [visible, initialName, initialPhone, initialAvatar]);
+
+  const trimmedName = name.trim();
+  const trimmedPhone = phone.trim();
+  const passwordDirty =
+    Boolean(currentPassword) || Boolean(newPassword) || Boolean(confirmPassword);
+  const nameDirty = trimmedName !== initialName.trim();
+  const phoneDirty = trimmedPhone !== (initialPhone ?? '').trim();
+  const photoDirty =
+    previewUri != null || (avatar ?? null) !== (initialAvatar ?? null);
+  const profileDirty = nameDirty || phoneDirty || photoDirty;
+  const canSave = (profileDirty || passwordDirty) && !saving;
 
   const onPickAvatar = async () => {
-    setUploading(true);
     try {
       const prepared = await pickAndPrepareImage();
       if (!prepared) return;
+
+      await new Promise<void>((resolve) => {
+        InteractionManager.runAfterInteractions(() => resolve());
+      });
+      setPreviewUri(prepared.uri);
+      setPendingPhoto(prepared);
+      setUploading(true);
       const { url } = await uploadImage({
         uri: prepared.uri,
         fileName: prepared.fileName,
@@ -70,6 +105,13 @@ export function ProfileEditSheet({
         type: 'avatar',
       });
       setAvatar(url);
+      setPendingPhoto(null);
+      Toast.show({
+        type: 'success',
+        text1: 'Photo ready',
+        text2: 'Tap Save to keep this avatar.',
+        position: 'bottom',
+      });
     } catch (error) {
       Toast.show({
         type: 'error',
@@ -83,19 +125,7 @@ export function ProfileEditSheet({
   };
 
   const onSave = async () => {
-    const trimmedName = name.trim();
-    const passwordDirty =
-      Boolean(currentPassword) ||
-      Boolean(newPassword) ||
-      Boolean(confirmPassword);
-    const profileDirty =
-      trimmedName !== initialName.trim() ||
-      (avatar ?? null) !== (initialAvatar ?? null);
-
-    if (!profileDirty && !passwordDirty) {
-      onClose();
-      return;
-    }
+    if (!canSave) return;
 
     if (profileDirty && !trimmedName) {
       Toast.show({
@@ -138,17 +168,30 @@ export function ProfileEditSheet({
 
     setSaving(true);
     try {
+      let avatarUrl = avatar;
+      if (pendingPhoto) {
+        const uploaded = await uploadImage({
+          uri: pendingPhoto.uri,
+          fileName: pendingPhoto.fileName,
+          mimeType: pendingPhoto.mimeType,
+          type: 'avatar',
+        });
+        avatarUrl = uploaded.url;
+        setAvatar(uploaded.url);
+        setPendingPhoto(null);
+      }
+
       const payload: {
         name?: string;
+        phone?: string | null;
         avatar?: string | null;
         currentPassword?: string;
         newPassword?: string;
       } = {};
 
-      if (profileDirty) {
-        payload.name = trimmedName;
-        payload.avatar = avatar;
-      }
+      if (nameDirty) payload.name = trimmedName;
+      if (phoneDirty) payload.phone = trimmedPhone || null;
+      if (photoDirty) payload.avatar = avatarUrl;
       if (passwordDirty) {
         payload.currentPassword = currentPassword;
         payload.newPassword = newPassword;
@@ -156,7 +199,8 @@ export function ProfileEditSheet({
 
       const updated = await updateProfile(payload);
       const nextName = updated.name || trimmedName;
-      const nextAvatar = updated.avatar ?? avatar;
+      const nextPhone = updated.phone ?? (trimmedPhone || null);
+      const nextAvatar = updated.avatar ?? avatarUrl;
 
       dispatch(
         userProfileUpdated({
@@ -177,7 +221,7 @@ export function ProfileEditSheet({
         });
       }
 
-      onSaved({ name: nextName, avatar: nextAvatar });
+      onSaved({ name: nextName, phone: nextPhone, avatar: nextAvatar });
       Toast.show({
         type: 'success',
         text1:
@@ -224,7 +268,11 @@ export function ProfileEditSheet({
               onPress={() => void onPickAvatar()}
               style={styles.avatarWrap}
             >
-              <UserAvatar avatar={avatar} email={email} size={88} />
+              {previewUri ? (
+                <Image source={{ uri: previewUri }} style={styles.preview} />
+              ) : (
+                <UserAvatar avatar={avatar} email={email} size={88} />
+              )}
               <View style={[styles.cameraBadge, { backgroundColor: colors.primary }]}>
                 {uploading ? (
                   <ActivityIndicator color="#0A140F" size="small" />
@@ -234,7 +282,11 @@ export function ProfileEditSheet({
               </View>
             </Pressable>
             <Text style={[styles.hint, { color: colors.textSecondary }]}>
-              Tap photo to upload a new avatar
+              {uploading
+                ? 'Uploading photo…'
+                : previewUri
+                  ? 'New photo ready. Tap Save to keep it.'
+                  : 'Tap photo to upload a new avatar'}
             </Text>
 
             <Text style={[styles.label, { color: colors.textSecondary }]}>Name</Text>
@@ -255,21 +307,13 @@ export function ProfileEditSheet({
               onChangeText={setName}
             />
 
-            <Text style={[styles.section, { color: colors.text }]}>
-              Change password
-            </Text>
-            <Text style={[styles.hint, { color: colors.textSecondary }]}>
-              Leave blank to keep your current password.
-            </Text>
-
-            <Text style={[styles.label, { color: colors.textSecondary }]}>
-              Current password
-            </Text>
+            <Text style={[styles.label, { color: colors.textSecondary }]}>Phone</Text>
             <TextInput
+              autoComplete="tel"
               editable={!saving}
-              placeholder="••••••••"
+              keyboardType="phone-pad"
+              placeholder="Phone number"
               placeholderTextColor={colors.textSecondary}
-              secureTextEntry
               style={[
                 styles.input,
                 {
@@ -278,49 +322,93 @@ export function ProfileEditSheet({
                   backgroundColor: colors.background,
                 },
               ]}
-              value={currentPassword}
-              onChangeText={setCurrentPassword}
+              textContentType="telephoneNumber"
+              value={phone}
+              onChangeText={setPhone}
             />
 
-            <Text style={[styles.label, { color: colors.textSecondary }]}>
-              New password
-            </Text>
-            <TextInput
-              editable={!saving}
-              placeholder="At least 8 characters"
-              placeholderTextColor={colors.textSecondary}
-              secureTextEntry
-              style={[
-                styles.input,
-                {
-                  borderColor: colors.border,
-                  color: colors.text,
-                  backgroundColor: colors.background,
-                },
-              ]}
-              value={newPassword}
-              onChangeText={setNewPassword}
-            />
+            <Pressable
+              disabled={saving}
+              onPress={() => setShowPassword((open) => !open)}
+              style={styles.passwordToggle}
+            >
+              <Text style={[styles.section, { color: colors.text }]}>
+                Change password
+              </Text>
+              <Ionicons
+                color={colors.textSecondary}
+                name={showPassword ? 'chevron-up' : 'chevron-down'}
+                size={18}
+              />
+            </Pressable>
 
-            <Text style={[styles.label, { color: colors.textSecondary }]}>
-              Confirm new password
-            </Text>
-            <TextInput
-              editable={!saving}
-              placeholder="Repeat new password"
-              placeholderTextColor={colors.textSecondary}
-              secureTextEntry
-              style={[
-                styles.input,
-                {
-                  borderColor: colors.border,
-                  color: colors.text,
-                  backgroundColor: colors.background,
-                },
-              ]}
-              value={confirmPassword}
-              onChangeText={setConfirmPassword}
-            />
+            {showPassword ? (
+              <>
+                <Text style={[styles.hint, styles.passwordHint, { color: colors.textSecondary }]}>
+                  Leave blank to keep your current password.
+                </Text>
+
+                <Text style={[styles.label, { color: colors.textSecondary }]}>
+                  Current password
+                </Text>
+                <TextInput
+                  editable={!saving}
+                  placeholder="••••••••"
+                  placeholderTextColor={colors.textSecondary}
+                  secureTextEntry
+                  style={[
+                    styles.input,
+                    {
+                      borderColor: colors.border,
+                      color: colors.text,
+                      backgroundColor: colors.background,
+                    },
+                  ]}
+                  value={currentPassword}
+                  onChangeText={setCurrentPassword}
+                />
+
+                <Text style={[styles.label, { color: colors.textSecondary }]}>
+                  New password
+                </Text>
+                <TextInput
+                  editable={!saving}
+                  placeholder="At least 8 characters"
+                  placeholderTextColor={colors.textSecondary}
+                  secureTextEntry
+                  style={[
+                    styles.input,
+                    {
+                      borderColor: colors.border,
+                      color: colors.text,
+                      backgroundColor: colors.background,
+                    },
+                  ]}
+                  value={newPassword}
+                  onChangeText={setNewPassword}
+                />
+
+                <Text style={[styles.label, { color: colors.textSecondary }]}>
+                  Confirm new password
+                </Text>
+                <TextInput
+                  editable={!saving}
+                  placeholder="Repeat new password"
+                  placeholderTextColor={colors.textSecondary}
+                  secureTextEntry
+                  style={[
+                    styles.input,
+                    {
+                      borderColor: colors.border,
+                      color: colors.text,
+                      backgroundColor: colors.background,
+                    },
+                  ]}
+                  value={confirmPassword}
+                  onChangeText={setConfirmPassword}
+                />
+              </>
+            ) : null}
           </ScrollView>
 
           <View style={styles.footer}>
@@ -334,9 +422,15 @@ export function ProfileEditSheet({
               </Text>
             </Pressable>
             <Pressable
-              disabled={saving || uploading}
+              disabled={!canSave}
               onPress={() => void onSave()}
-              style={[styles.primaryBtn, { backgroundColor: colors.primary }]}
+              style={[
+                styles.primaryBtn,
+                {
+                  backgroundColor: colors.primary,
+                  opacity: canSave ? 1 : 0.4,
+                },
+              ]}
             >
               {saving ? (
                 <ActivityIndicator color="#0A140F" />
@@ -384,6 +478,13 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     marginTop: 8,
   },
+  preview: {
+    borderColor: '#C6F54A',
+    borderRadius: 999,
+    borderWidth: 2,
+    height: 88,
+    width: 88,
+  },
   cameraBadge: {
     alignItems: 'center',
     borderRadius: 999,
@@ -409,7 +510,15 @@ const styles = StyleSheet.create({
   section: {
     fontSize: 15,
     fontWeight: '800',
+  },
+  passwordToggle: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     marginTop: 16,
+  },
+  passwordHint: {
+    textAlign: 'left',
   },
   input: {
     borderRadius: 12,

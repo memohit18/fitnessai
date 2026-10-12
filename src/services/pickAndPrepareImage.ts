@@ -60,28 +60,38 @@ export async function pickAndPrepareImage(): Promise<PreparedImage | null> {
   const height = asset.height || MAX_DIMENSION;
   const longest = Math.max(width, height);
   const scale = longest > MAX_DIMENSION ? MAX_DIMENSION / longest : 1;
+  const fileName = asset.fileName?.replace(/\.\w+$/, '.jpg') || 'photo.jpg';
 
-  const manipulated = await ImageManipulator.manipulateAsync(
-    asset.uri,
-    scale < 1
-      ? [
-          {
-            resize: {
-              width: Math.round(width * scale),
-              height: Math.round(height * scale),
+  try {
+    const manipulated = await ImageManipulator.manipulateAsync(
+      asset.uri,
+      scale < 1
+        ? [
+            {
+              resize: {
+                width: Math.round(width * scale),
+                height: Math.round(height * scale),
+              },
             },
-          },
-        ]
-      : [],
-    {
-      compress: 0.85,
-      format: ImageManipulator.SaveFormat.JPEG,
-    },
-  );
+          ]
+        : [],
+      {
+        compress: 0.85,
+        format: ImageManipulator.SaveFormat.JPEG,
+      },
+    );
 
-  return {
-    uri: manipulated.uri,
-    fileName: asset.fileName?.replace(/\.\w+$/, '.jpg') || 'photo.jpg',
-    mimeType: 'image/jpeg',
-  };
+    return {
+      uri: manipulated.uri || asset.uri,
+      fileName,
+      mimeType: 'image/jpeg',
+    };
+  } catch {
+    if (!asset.uri) return null;
+    return {
+      uri: asset.uri,
+      fileName,
+      mimeType: asset.mimeType || 'image/jpeg',
+    };
+  }
 }

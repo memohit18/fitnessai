@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Image, StyleSheet, View } from 'react-native';
 
 import { useTheme } from '../../contexts/ThemeContext';
@@ -19,6 +19,10 @@ export function UserAvatar({ email, avatar, size = 64 }: UserAvatarProps) {
   const [failed, setFailed] = useState(false);
   const remote = avatar?.trim() && !failed ? avatar.trim() : null;
 
+  useEffect(() => {
+    setFailed(false);
+  }, [avatar]);
+
   return (
     <View
       style={[
@@ -32,6 +36,7 @@ export function UserAvatar({ email, avatar, size = 64 }: UserAvatarProps) {
       ]}
     >
       <Image
+        key={remote ?? 'fallback'}
         source={{ uri: remote ?? getCartoonAvatarUri(email) }}
         style={styles.image}
         onError={() => setFailed(true)}

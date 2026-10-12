@@ -41,7 +41,10 @@ export function normalizeUserProfile(response: unknown): UserProfile {
   return {
     name: readString(data.name) ?? '',
     email: readString(data.email) ?? '',
-    phone: readString(data.phone),
+    phone:
+      readString(data.phone) ??
+      readString(data.phoneNumber) ??
+      readString(data.phone_number),
     avatar:
       readString(data.avatar) ??
       readString(data.imageUrl) ??
