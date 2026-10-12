@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Image, StyleSheet, View } from 'react-native';
 
 import { useTheme } from '../../contexts/ThemeContext';
@@ -9,11 +10,14 @@ function getCartoonAvatarUri(email?: string | null): string {
 
 interface UserAvatarProps {
   email?: string | null;
+  avatar?: string | null;
   size?: number;
 }
 
-export function UserAvatar({ email, size = 64 }: UserAvatarProps) {
+export function UserAvatar({ email, avatar, size = 64 }: UserAvatarProps) {
   const { colors } = useTheme();
+  const [failed, setFailed] = useState(false);
+  const remote = avatar?.trim() && !failed ? avatar.trim() : null;
 
   return (
     <View
@@ -27,7 +31,11 @@ export function UserAvatar({ email, size = 64 }: UserAvatarProps) {
         },
       ]}
     >
-      <Image source={{ uri: getCartoonAvatarUri(email) }} style={styles.image} />
+      <Image
+        source={{ uri: remote ?? getCartoonAvatarUri(email) }}
+        style={styles.image}
+        onError={() => setFailed(true)}
+      />
     </View>
   );
 }

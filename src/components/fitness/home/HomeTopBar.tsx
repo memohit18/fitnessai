@@ -7,6 +7,7 @@ import { fitnessPalette as p } from '../../../constants/fitnessPalette';
 type HomeTopBarProps = {
   firstName: string;
   email?: string | null;
+  avatar?: string | null;
   onAvatarPress?: () => void;
   onBellPress?: () => void;
   onStreakPress?: () => void;
@@ -15,6 +16,7 @@ type HomeTopBarProps = {
 export function HomeTopBar({
   firstName,
   email,
+  avatar,
   onAvatarPress,
   onBellPress,
   onStreakPress,
@@ -22,7 +24,7 @@ export function HomeTopBar({
   return (
     <View style={styles.row}>
       <Pressable accessibilityRole="button" onPress={onAvatarPress} style={styles.identity}>
-        <UserAvatar email={email} size={48} />
+        <UserAvatar avatar={avatar} email={email} size={48} />
         <View style={styles.copy}>
           <Text style={styles.hello} numberOfLines={1}>
             Hello {firstName} 👋

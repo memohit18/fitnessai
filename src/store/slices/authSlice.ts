@@ -83,6 +83,18 @@ const authSlice = createSlice({
       state.refreshToken = action.payload.refreshToken;
       state.user = action.payload.user;
     },
+    userProfileUpdated(
+      state,
+      action: PayloadAction<{ name?: string | null; avatar?: string | null }>,
+    ) {
+      if (!state.user) return;
+      if (action.payload.name !== undefined) {
+        state.user.name = action.payload.name;
+      }
+      if (action.payload.avatar !== undefined) {
+        state.user.avatar = action.payload.avatar;
+      }
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -126,5 +138,5 @@ const authSlice = createSlice({
   },
 });
 
-export const { sessionRefreshed } = authSlice.actions;
+export const { sessionRefreshed, userProfileUpdated } = authSlice.actions;
 export default authSlice.reducer;

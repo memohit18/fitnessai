@@ -47,6 +47,7 @@ export async function loadSession(): Promise<AuthSession | null> {
         id: fromToken?.user.id ?? parsed.user.id,
         email: parsed.user.email,
         name: parsed.user.name?.trim() || fromToken?.user.name || null,
+        avatar: parsed.user.avatar ?? null,
       },
     };
   } catch {

@@ -214,6 +214,7 @@ export function HomeScreen() {
           showsVerticalScrollIndicator={false}
         >
           <HomeTopBar
+            avatar={user?.avatar}
             email={user?.email}
             firstName={firstName}
             onAvatarPress={() => navigation.navigate('Profile')}

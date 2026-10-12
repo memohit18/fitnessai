@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -7,20 +7,68 @@ import {
   Text,
   View,
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 
+import { getProfile } from '../../api/profileApi';
 import { AppShell } from '../../components/app/AppShell';
+import { ProfileEditSheet } from '../../components/app/ProfileEditSheet';
 import { UserAvatar } from '../../components/app/UserAvatar';
 import { FitnessProfilePanel } from '../../components/fitness/FitnessProfilePanel';
 import { useTheme } from '../../contexts/ThemeContext';
-import { useAuth } from '../../hooks';
+import { useAuth, useAppDispatch } from '../../hooks';
+import { userProfileUpdated } from '../../store/slices/authSlice';
+import { loadSession, saveSession } from '../../services/authSession';
 
 export function ProfileScreen() {
   const { colors } = useTheme();
+  const dispatch = useAppDispatch();
   const { user, signOut } = useAuth();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [avatar, setAvatar] = useState<string | null>(user?.avatar ?? null);
+  const [displayName, setDisplayName] = useState(
+    user?.name?.trim() || 'User',
+  );
 
-  const displayName = user?.name?.trim() || 'User';
   const email = user?.email ?? '—';
+
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      void (async () => {
+        try {
+          const profile = await getProfile();
+          if (!active) return;
+          const nextName = profile.name?.trim() || user?.name?.trim() || 'User';
+          const nextAvatar = profile.avatar ?? null;
+          setDisplayName(nextName);
+          setAvatar(nextAvatar);
+          dispatch(
+            userProfileUpdated({
+              name: nextName,
+              avatar: nextAvatar,
+            }),
+          );
+          const session = await loadSession();
+          if (session) {
+            await saveSession({
+              ...session,
+              user: {
+                ...session.user,
+                name: nextName,
+                avatar: nextAvatar,
+              },
+            });
+          }
+        } catch {
+          // Keep local session values if profile fetch fails.
+        }
+      })();
+      return () => {
+        active = false;
+      };
+    }, [dispatch, user?.name]),
+  );
 
   const onLogout = async () => {
     setIsLoggingOut(true);
@@ -44,13 +92,19 @@ export function ProfileScreen() {
             { backgroundColor: colors.surface, borderColor: colors.border },
           ]}
         >
-          <UserAvatar email={email} size={80} />
+          <UserAvatar avatar={avatar} email={email} size={80} />
           <Text style={[styles.name, { color: colors.text }]} numberOfLines={1}>
             {displayName}
           </Text>
           <Text style={[styles.email, { color: colors.textSecondary }]} numberOfLines={1}>
             {email}
           </Text>
+          <Pressable
+            onPress={() => setEditOpen(true)}
+            style={[styles.editBtn, { borderColor: colors.border }]}
+          >
+            <Text style={[styles.editText, { color: colors.text }]}>Edit profile</Text>
+          </Pressable>
         </View>
 
         <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
@@ -81,6 +135,18 @@ export function ProfileScreen() {
           )}
         </Pressable>
       </ScrollView>
+
+      <ProfileEditSheet
+        email={email === '—' ? '' : email}
+        initialAvatar={avatar}
+        initialName={displayName === 'User' ? '' : displayName}
+        visible={editOpen}
+        onClose={() => setEditOpen(false)}
+        onSaved={({ name, avatar: nextAvatar }) => {
+          setDisplayName(name.trim() || 'User');
+          setAvatar(nextAvatar);
+        }}
+      />
     </AppShell>
   );
 }
@@ -131,6 +197,17 @@ const styles = StyleSheet.create({
   },
   email: {
     fontSize: 14,
+  },
+  editBtn: {
+    borderRadius: 12,
+    borderWidth: 1,
+    marginTop: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  editText: {
+    fontSize: 14,
+    fontWeight: '700',
   },
   sectionLabel: {
     fontSize: 12,
