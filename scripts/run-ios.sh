@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Launch ThinkTank on iOS without Expo's Simulator.app check.
+# Launch fitnessai on iOS without Expo's Simulator.app check.
 # Needed on Xcode 27+, where Simulator.app was replaced by DeviceHub.
 
 set -euo pipefail
@@ -7,10 +7,10 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
-BUNDLE_ID="com.thinktank.mobile"
+BUNDLE_ID="com.fitnessai.mobile"
 DEVICE_NAME="${1:-iPhone 17}"
 METRO_URL="http://127.0.0.1:8081"
-DEEP_LINK="exp+thinktankmobile://expo-development-client/?url=http%3A%2F%2F127.0.0.1%3A8081"
+DEEP_LINK="exp+fitnessai://expo-development-client/?url=http%3A%2F%2F127.0.0.1%3A8081"
 
 resolve_udid() {
   local booted
@@ -48,7 +48,7 @@ open_device_ui() {
 
 find_app() {
   find "$HOME/Library/Developer/Xcode/DerivedData" \
-    -path "*/Build/Products/Debug-iphonesimulator/thinktankmobile.app" \
+    -path "*/Build/Products/Debug-iphonesimulator/fitnessai.app" \
     -type d 2>/dev/null | head -1
 }
 
@@ -57,8 +57,8 @@ build_app() {
   # Prefer default DerivedData — custom ios/build often fails ExpoModulesJSI on Xcode 27+.
   set -o pipefail
   xcodebuild \
-    -workspace ios/thinktankmobile.xcworkspace \
-    -scheme thinktankmobile \
+    -workspace ios/fitnessai.xcworkspace \
+    -scheme fitnessai \
     -configuration Debug \
     -sdk iphonesimulator \
     -destination "platform=iOS Simulator,name=$DEVICE_NAME" \
@@ -72,12 +72,12 @@ ensure_metro() {
   fi
 
   echo "Starting Metro…"
-  npx expo start --dev-client --clear >/tmp/thinktank-metro.log 2>&1 &
+  npx expo start --dev-client --clear >/tmp/fitnessai-metro.log 2>&1 &
   local tries=0
   until lsof -nP -iTCP:8081 -sTCP:LISTEN >/dev/null 2>&1; do
     tries=$((tries + 1))
     if [[ "$tries" -gt 60 ]]; then
-      echo "Metro failed to start. See /tmp/thinktank-metro.log" >&2
+      echo "Metro failed to start. See /tmp/fitnessai-metro.log" >&2
       exit 1
     fi
     sleep 1
@@ -95,7 +95,7 @@ if [[ "${FORCE_REBUILD:-}" == "1" || -z "${APP:-}" || ! -d "$APP" ]]; then
 fi
 
 if [[ -z "${APP:-}" || ! -d "$APP" ]]; then
-  echo "Could not find thinktankmobile.app after build." >&2
+  echo "Could not find fitnessai.app after build." >&2
   exit 1
 fi
 

@@ -9,7 +9,7 @@
       "client_info": {
         "mobilesdk_app_id": "1:YOUR_SENDER_ID:android:YOUR_APP_ID",
         "android_client_info": {
-          "package_name": "com.thinktank.mobile"
+          "package_name": "com.fitnessai.mobile"
         }
       },
       "oauth_client": [],

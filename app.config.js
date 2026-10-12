@@ -11,22 +11,22 @@ const androidGoogleServicesExists = fs.existsSync(path.join(__dirname, androidGo
 /** @type {import('expo/config').ExpoConfig} */
 module.exports = {
   expo: {
-    name: 'DIP',
+    name: 'fitnessai',
     slug: 'fitnessai',
     // Bump this for each store release. Remote gate compares against it.
     version: '1.0.0',
-    scheme: 'thinktank',
+    scheme: 'fitnessai',
     orientation: 'portrait',
     icon: './assets/icon.png',
     userInterfaceStyle: 'automatic',
     ios: {
       supportsTablet: true,
-      bundleIdentifier: 'com.thinktank.mobile',
+      bundleIdentifier: 'com.fitnessai.mobile',
       buildNumber: '1',
       ...(iosGoogleServicesExists ? { googleServicesFile: iosGoogleServicesPath } : {}),
     },
     android: {
-      package: 'com.thinktank.mobile',
+      package: 'com.fitnessai.mobile',
       versionCode: 1,
       ...(androidGoogleServicesExists ? { googleServicesFile: androidGoogleServicesPath } : {}),
       adaptiveIcon: {
@@ -50,7 +50,7 @@ module.exports = {
         'expo-image-picker',
         {
           photosPermission:
-            'Allow ThinkTank to access your photos so you can upload meal and workout images.',
+            'Allow fitnessai to access your photos so you can upload meal and workout images.',
           cameraPermission: false,
           microphonePermission: false,
         },

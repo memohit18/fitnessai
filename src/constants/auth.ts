@@ -1,1 +1,1 @@
-export const AUTH_SESSION_KEY = 'thinktank.auth.session';
+export const AUTH_SESSION_KEY = 'fitnessai.auth.session';

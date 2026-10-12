@@ -72,7 +72,7 @@ GET /mobile/app-version
   "title": "Update required",
   "message": "This release fixes login and meal logging. Please update.",
   "storeUrlIos": "https://apps.apple.com/app/idXXXXXXXX",
-  "storeUrlAndroid": "https://play.google.com/store/apps/details?id=com.thinktank.mobile"
+  "storeUrlAndroid": "https://play.google.com/store/apps/details?id=com.fitnessai.mobile"
 }
 ```
 
@@ -122,7 +122,7 @@ If the API is not ready yet, you can still test the gate with env vars (see [`.e
 EXPO_PUBLIC_MIN_APP_VERSION=2.0.0
 EXPO_PUBLIC_LATEST_APP_VERSION=2.0.0
 EXPO_PUBLIC_IOS_STORE_URL=https://apps.apple.com/app/idXXXXXXXX
-EXPO_PUBLIC_ANDROID_STORE_URL=https://play.google.com/store/apps/details?id=com.thinktank.mobile
+EXPO_PUBLIC_ANDROID_STORE_URL=https://play.google.com/store/apps/details?id=com.fitnessai.mobile
 ```
 
 With app version `1.0.0`, that forces the update screen locally after a Metro restart.

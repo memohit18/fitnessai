@@ -4,7 +4,7 @@ import { Image, StyleSheet, View } from 'react-native';
 import { useTheme } from '../../contexts/ThemeContext';
 
 function getCartoonAvatarUri(email?: string | null): string {
-  const seed = encodeURIComponent(email?.trim() || 'thinktank-user');
+  const seed = encodeURIComponent(email?.trim() || 'fitnessai-user');
   return `https://api.dicebear.com/7.x/adventurer/png?seed=${seed}`;
 }
 

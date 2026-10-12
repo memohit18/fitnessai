@@ -45,7 +45,7 @@ Edit `.env` with your values:
 | `EXPO_PUBLIC_APP_ENV` | `development`, `staging`, or `production` |
 | `EXPO_PUBLIC_API_URL` | Backend API base URL |
 | `EXPO_PUBLIC_API_TIMEOUT_MS` | Request timeout in ms |
-| `EXPO_PUBLIC_AUTH_SCHEME` | Deep link scheme (`thinktank`) |
+| `EXPO_PUBLIC_AUTH_SCHEME` | Deep link scheme (`fitnessai`) |
 | `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID` | iOS OAuth client ID |
 | `EXPO_PUBLIC_GOOGLE_CLIENT_ID` | Web OAuth client ID (required on iOS for `idToken`) |
 | `EXPO_PUBLIC_GOOGLE_IOS_URL_SCHEME` | `REVERSED_CLIENT_ID` from `GoogleService-Info.plist` |
@@ -53,7 +53,7 @@ Edit `.env` with your values:
 ### 3. Google Sign-In (native)
 
 1. In [Google Cloud Console](https://console.cloud.google.com/), create OAuth clients for:
-   - **iOS** — bundle ID: `com.thinktank.mobile`
+   - **iOS** — bundle ID: `com.fitnessai.mobile`
    - **Web** — used by iOS to obtain an ID token
 2. Download `GoogleService-Info.plist` → project root
 3. Download `google-services.json` → project root (Android)
@@ -197,8 +197,8 @@ cd ios && pod install && cd ..
 
 | Platform | ID |
 |----------|-----|
-| iOS | `com.thinktank.mobile` |
-| Android | `com.thinktank.mobile` |
+| iOS | `com.fitnessai.mobile` |
+| Android | `com.fitnessai.mobile` |
 
 ## License
 
