@@ -94,7 +94,7 @@ function buildStyles(p: FitnessPalette) {
   },
   iconBtn: {
     alignItems: 'center',
-    backgroundColor: 'rgba(26, 42, 34, 0.92)',
+    backgroundColor: p.surfaceElevated,
     borderColor: p.border,
     borderRadius: 999,
     borderWidth: 1,

@@ -28,7 +28,7 @@ export function DashboardHeroCard({
   return (
     <View style={styles.shell}>
       <LinearGradient
-        colors={['rgba(200,255,0,0.16)', 'rgba(7,20,15,0.2)', 'transparent']}
+        colors={[p.limeDim, 'transparent', 'transparent']}
         end={{ x: 1, y: 1 }}
         start={{ x: 0, y: 0 }}
         style={StyleSheet.absoluteFill}

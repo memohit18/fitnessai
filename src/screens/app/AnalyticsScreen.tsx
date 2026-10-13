@@ -238,7 +238,7 @@ export function AnalyticsScreen() {
       {/* Pull into AppShell top inset so the glow covers the safe-area band (no color seam). */}
       <View style={[styles.root, { paddingTop: topPad }]}>
         <LinearGradient
-          colors={['rgba(200,255,0,0.14)', 'rgba(7,20,15,0)']}
+          colors={[p.limeDim, 'transparent']}
           end={{ x: 1, y: 1 }}
           start={{ x: 0, y: 0 }}
           style={[styles.glow, { height: 260 + topPad }]}

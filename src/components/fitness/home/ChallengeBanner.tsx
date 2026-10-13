@@ -46,10 +46,11 @@ const styles = StyleSheet.create({
   },
   iconWrap: {
     alignItems: 'center',
-    backgroundColor: 'rgba(10,20,15,0.88)',
+    backgroundColor: p.onLime,
     borderRadius: 999,
     height: 48,
     justifyContent: 'center',
+    opacity: 0.88,
     width: 48,
   },
   copy: {
@@ -62,12 +63,13 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   subtitle: {
-    color: 'rgba(10,20,15,0.72)',
+    color: p.onLime,
     fontSize: 13,
     fontWeight: '600',
+    opacity: 0.72,
   },
   startBtn: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: p.surface,
     borderRadius: 999,
     paddingHorizontal: 16,
     paddingVertical: 10,

@@ -188,7 +188,7 @@ const styles = StyleSheet.create({
   },
   cta: {
     alignItems: 'center',
-    backgroundColor: 'rgba(14,14,14,0.72)',
+    backgroundColor: p.surfaceElevated,
     borderColor: p.border,
     borderRadius: 14,
     borderWidth: 1,

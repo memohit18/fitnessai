@@ -47,7 +47,6 @@ export function UserAvatar({ email, avatar, size = 64 }: UserAvatarProps) {
 
 const styles = StyleSheet.create({
   wrapper: {
-    backgroundColor: '#1A1A1A',
     borderRadius: 999,
     borderWidth: 2,
     overflow: 'hidden',
