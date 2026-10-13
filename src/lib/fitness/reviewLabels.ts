@@ -5,6 +5,7 @@ import {
   EXPERIENCE_LEVEL_OPTIONS,
   FITNESS_GOAL_OPTIONS,
   GENDER_OPTIONS,
+  HOME_EQUIPMENT_OPTIONS,
   WORKOUT_MODE_OPTIONS,
 } from './constants';
 
@@ -75,6 +76,21 @@ export function buildFitnessReviewSectionsFromProfile(
         {
           label: 'Workout mode',
           value: labelFor(WORKOUT_MODE_OPTIONS, profile.workoutMode),
+        },
+        {
+          label: 'Home equipment',
+          value:
+            profile.workoutMode === 'gym'
+              ? 'N/A (gym)'
+              : profile.equipmentAvailable?.length
+                ? profile.equipmentAvailable
+                    .map(
+                      (item) =>
+                        HOME_EQUIPMENT_OPTIONS.find((option) => option.value === item)
+                          ?.label ?? item,
+                    )
+                    .join(', ')
+                : 'Bodyweight only',
         },
         {
           label: 'Workout days',

@@ -6,6 +6,7 @@ import type {
   FitnessSetupFormValues,
   FitnessSetupStepId,
   Gender,
+  HomeEquipment,
   WorkoutMode,
 } from '../../types/fitness';
 
@@ -81,6 +82,19 @@ export const WORKOUT_MODE_OPTIONS: {
   },
 ];
 
+export const HOME_EQUIPMENT_OPTIONS: {
+  value: HomeEquipment;
+  label: string;
+}[] = [
+  { value: 'dumbbells', label: 'Dumbbells' },
+  { value: 'resistance_bands', label: 'Resistance bands' },
+  { value: 'pull_up_bar', label: 'Pull-up bar' },
+  { value: 'kettlebell', label: 'Kettlebell' },
+  { value: 'bench', label: 'Bench' },
+  { value: 'barbell', label: 'Barbell' },
+  { value: 'yoga_mat', label: 'Yoga mat' },
+];
+
 export const WORKOUT_DAYS_OPTIONS = [2, 3, 4, 5, 6, 7];
 
 export const FITNESS_ONBOARDING_BENEFITS = [
@@ -102,6 +116,7 @@ export const EMPTY_FITNESS_SETUP_VALUES: FitnessSetupFormValues = {
   workoutExperience: '',
   workoutDaysPerWeek: '',
   workoutMode: '',
+  equipmentAvailable: [],
   targetWeightKg: '',
   targetBodyFatPercent: '',
   allergies: '',

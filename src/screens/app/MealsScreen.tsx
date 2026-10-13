@@ -1,6 +1,9 @@
 import { useCallback, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Dimensions,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -24,6 +27,8 @@ import {
 } from '../../api/mealApi';
 import { AppShell } from '../../components/app/AppShell';
 import { AddMealSheet } from '../../components/fitness/AddMealSheet';
+import { DietPanel } from '../../components/fitness/diet/DietPanel';
+import { NutritionPanel } from '../../components/fitness/nutrition/NutritionPanel';
 import { ImageUploadThumb } from '../../components/fitness/ImageUploadThumb';
 import type { FitnessPalette } from '../../constants/fitnessPalette';
 import { useFitnessPalette, useFitnessStyles } from '../../hooks/useFitnessPalette';
@@ -34,6 +39,16 @@ import {
 } from '../../lib/fitness/mealMath';
 import type { MealItem, NutritionBudget, TodayMeals } from '../../types/fitness';
 import { getApiErrorMessage } from '../../utils/api';
+
+type MealsTab = 'meals' | 'diet' | 'nutrition';
+const TABS: MealsTab[] = ['meals', 'diet', 'nutrition'];
+const PAGE_WIDTH = Dimensions.get('window').width;
+/** Extra scroll room so last cards clear the floating Analytics FAB. */
+const SCROLL_BOTTOM_PAD = 110;
+
+function tabIndex(tab: MealsTab) {
+  return TABS.indexOf(tab);
+}
 
 /** Prefer API amountLabel / servingAmount×unit via mealAmountDisplay. */
 const MEAL_ORDER = ['breakfast', 'lunch', 'dinner', 'snack'];
@@ -48,6 +63,9 @@ const MEAL_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
 export function MealsScreen() {
   const palette = useFitnessPalette();
   const styles = useFitnessStyles(buildStyles);
+  const [tab, setTab] = useState<MealsTab>('meals');
+  const pagerRef = useRef<ScrollView>(null);
+  const [pagerHeight, setPagerHeight] = useState(0);
   const [data, setData] = useState<TodayMeals | null>(null);
   const [budget, setBudget] = useState<NutritionBudget | null>(null);
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
@@ -61,6 +79,19 @@ export function MealsScreen() {
     mealType: string;
   } | null>(null);
   const hasLoadedRef = useRef(false);
+
+  const selectTab = (next: MealsTab) => {
+    setTab(next);
+    pagerRef.current?.scrollTo({
+      x: tabIndex(next) * PAGE_WIDTH,
+      animated: true,
+    });
+  };
+
+  const onPagerScrollEnd = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const index = Math.round(event.nativeEvent.contentOffset.x / PAGE_WIDTH);
+    setTab(TABS[Math.max(0, Math.min(TABS.length - 1, index))] ?? 'meals');
+  };
 
   const load = useCallback(async (mode: 'full' | 'soft' = 'full') => {
     if (mode === 'full') {
@@ -164,112 +195,176 @@ export function MealsScreen() {
 
   return (
     <AppShell backgroundColor={palette.bg} contentStyle={styles.shell} hideHeader>
-      <ScrollView
-        contentContainerStyle={styles.content}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            tintColor={palette.lime}
-            onRefresh={() => void load('soft')}
-          />
-        }
-      >
-        <View style={styles.topRow}>
-          <View style={styles.dateRow}>
-            <Text style={styles.dateText}>{formatDayLabel(data?.date)}</Text>
-            <Ionicons color={palette.lime} name="chevron-forward" size={14} />
-          </View>
-          <Pressable
-            accessibilityRole="button"
-            onPress={() =>
-              Toast.show({
-                type: 'info',
-                text1: 'No new notifications',
-                position: 'bottom',
-              })
-            }
-            style={styles.bell}
-          >
-            <Ionicons color={palette.text} name="notifications-outline" size={18} />
-          </Pressable>
-        </View>
-
-        <View style={styles.eyebrowRow}>
-          <Text style={styles.eyebrow}>Meals</Text>
-          <View style={styles.eyebrowDot} />
-        </View>
-        <Text style={styles.title}>Today’s plan</Text>
-        <Text style={styles.muted}>
-          Mark what you ate, skip a meal, or undo a mistake.
-        </Text>
-
-        <BudgetCard budget={budget} />
-
-        {status === 'error' ? (
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Couldn’t load meals</Text>
-            <Text style={styles.muted}>{error}</Text>
-            <Pressable onPress={() => void load()} style={styles.primaryBtn}>
-              <Text style={styles.primaryBtnText}>Retry</Text>
-            </Pressable>
-          </View>
-        ) : null}
-
-        {status === 'loading' && meals.length === 0 ? (
-          <View style={styles.card}>
-            <ActivityIndicator color={palette.lime} />
-          </View>
-        ) : null}
-
-        {status === 'ready' && meals.length === 0 ? (
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>No active meal plan</Text>
-            <Text style={styles.muted}>
-              Generate a weekly plan to see breakfast, lunch, dinner, and snacks.
-            </Text>
+      <View style={styles.tabsWrap}>
+        {TABS.map((key) => {
+          const label =
+            key === 'meals' ? 'Meals' : key === 'diet' ? 'Diet' : 'Nutrition';
+          const active = tab === key;
+          return (
             <Pressable
-              disabled={generating}
-              onPress={() => void onGenerate()}
-              style={styles.primaryBtn}
+              key={key}
+              onPress={() => selectTab(key)}
+              style={[styles.tabChip, active && styles.tabChipActive]}
             >
-              {generating ? (
-                <ActivityIndicator color={palette.onLime} />
-              ) : (
-                <Text style={styles.primaryBtnText}>Generate meal plan</Text>
-              )}
+              <Text
+                style={[styles.tabChipText, active && styles.tabChipTextActive]}
+              >
+                {label}
+              </Text>
             </Pressable>
-          </View>
-        ) : null}
+          );
+        })}
+      </View>
 
-        {meals.map((meal) => (
-          <MealCard
-            key={meal.id}
-            busy={busyId === meal.id}
-            meal={meal}
-            onEat={() => void runMealAction(meal, 'complete')}
-            onSkip={() => void runMealAction(meal, 'skip')}
-            onSwap={() => {
-              setAteInsteadOf({ mealId: meal.id, mealType: meal.type });
-              setAdding(true);
-            }}
-            onUndo={() => void runMealAction(meal, 'undo')}
-            onUpload={(prepared) => onUploadMealImage(meal, prepared)}
-          />
-        ))}
-
-        {meals.length > 0 ? (
-          <Pressable
-            onPress={() => {
-              setAteInsteadOf(null);
-              setAdding(true);
-            }}
-            style={styles.addBtn}
+      <View
+        style={styles.pager}
+        onLayout={(event) => {
+          const next = Math.round(event.nativeEvent.layout.height);
+          if (next > 0 && next !== pagerHeight) setPagerHeight(next);
+        }}
+      >
+      <ScrollView
+        ref={pagerRef}
+        horizontal
+        pagingEnabled
+        showsHorizontalScrollIndicator={false}
+        onMomentumScrollEnd={onPagerScrollEnd}
+        style={pagerHeight > 0 ? { height: pagerHeight } : styles.pager}
+      >
+        <View
+          style={[
+            styles.page,
+            { width: PAGE_WIDTH, height: pagerHeight > 0 ? pagerHeight : undefined },
+          ]}
+        >
+          <ScrollView
+            contentContainerStyle={[styles.content, { paddingBottom: SCROLL_BOTTOM_PAD }]}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                tintColor={palette.lime}
+                onRefresh={() => void load('soft')}
+              />
+            }
           >
-            <Ionicons color={palette.lime} name="add" size={16} />
-            <Text style={styles.addBtnText}>ADD A MEAL YOU ATE</Text>
-          </Pressable>
-        ) : null}
+            <View style={styles.topRow}>
+              <View style={styles.dateRow}>
+                <Text style={styles.dateText}>{formatDayLabel(data?.date)}</Text>
+                <Ionicons color={palette.lime} name="chevron-forward" size={14} />
+              </View>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() =>
+                  Toast.show({
+                    type: 'info',
+                    text1: 'No new notifications',
+                    position: 'bottom',
+                  })
+                }
+                style={styles.bell}
+              >
+                <Ionicons color={palette.text} name="notifications-outline" size={18} />
+              </Pressable>
+            </View>
+
+            <View style={styles.eyebrowRow}>
+              <Text style={styles.eyebrow}>Meals</Text>
+              <View style={styles.eyebrowDot} />
+            </View>
+            <Text style={styles.title}>Today’s plan</Text>
+            <Text style={styles.muted}>
+              Mark what you ate, skip a meal, or undo a mistake.
+            </Text>
+
+            <BudgetCard budget={budget} />
+
+            {status === 'error' ? (
+              <View style={styles.card}>
+                <Text style={styles.cardTitle}>Couldn’t load meals</Text>
+                <Text style={styles.muted}>{error}</Text>
+                <Pressable onPress={() => void load()} style={styles.primaryBtn}>
+                  <Text style={styles.primaryBtnText}>Retry</Text>
+                </Pressable>
+              </View>
+            ) : null}
+
+            {status === 'loading' && meals.length === 0 ? (
+              <View style={styles.card}>
+                <ActivityIndicator color={palette.lime} />
+              </View>
+            ) : null}
+
+            {status === 'ready' && meals.length === 0 ? (
+              <View style={styles.card}>
+                <Text style={styles.cardTitle}>No active meal plan</Text>
+                <Text style={styles.muted}>
+                  Generate a weekly plan to see breakfast, lunch, dinner, and snacks.
+                </Text>
+                <Pressable
+                  disabled={generating}
+                  onPress={() => void onGenerate()}
+                  style={styles.primaryBtn}
+                >
+                  {generating ? (
+                    <ActivityIndicator color={palette.onLime} />
+                  ) : (
+                    <Text style={styles.primaryBtnText}>Generate meal plan</Text>
+                  )}
+                </Pressable>
+              </View>
+            ) : null}
+
+            {meals.map((meal) => (
+              <MealCard
+                key={meal.id}
+                busy={busyId === meal.id}
+                meal={meal}
+                onEat={() => void runMealAction(meal, 'complete')}
+                onSkip={() => void runMealAction(meal, 'skip')}
+                onSwap={() => {
+                  setAteInsteadOf({ mealId: meal.id, mealType: meal.type });
+                  setAdding(true);
+                }}
+                onUndo={() => void runMealAction(meal, 'undo')}
+                onUpload={(prepared) => onUploadMealImage(meal, prepared)}
+              />
+            ))}
+
+            {meals.length > 0 ? (
+              <Pressable
+                onPress={() => {
+                  setAteInsteadOf(null);
+                  setAdding(true);
+                }}
+                style={styles.addBtn}
+              >
+                <Ionicons color={palette.lime} name="add" size={16} />
+                <Text style={styles.addBtnText}>ADD A MEAL YOU ATE</Text>
+              </Pressable>
+            ) : null}
+          </ScrollView>
+        </View>
+
+        <View
+          style={[
+            styles.page,
+            { width: PAGE_WIDTH, height: pagerHeight > 0 ? pagerHeight : undefined },
+          ]}
+        >
+          <DietPanel />
+        </View>
+
+        <View
+          style={[
+            styles.page,
+            { width: PAGE_WIDTH, height: pagerHeight > 0 ? pagerHeight : undefined },
+          ]}
+        >
+          <NutritionPanel />
+        </View>
       </ScrollView>
+      </View>
+
       <AddMealSheet
         key={ateInsteadOf ? `instead-${ateInsteadOf.mealId}` : 'add-eaten'}
         dayNumber={data?.dayNumber ?? null}
@@ -550,7 +645,40 @@ function formatDayLabel(iso?: string | null) {
 
 function buildStyles(p: FitnessPalette) {
   return {
-    shell: { backgroundColor: p.bg, paddingHorizontal: 0 },
+    shell: { backgroundColor: p.bg, paddingHorizontal: 0, flex: 1 },
+    tabsWrap: {
+      alignItems: 'center' as const,
+      flexDirection: 'row' as const,
+      gap: 6,
+      paddingHorizontal: 16,
+      paddingBottom: 10,
+      paddingTop: 6,
+    },
+    tabChip: {
+      backgroundColor: p.surface,
+      borderColor: p.border,
+      borderRadius: 999,
+      borderWidth: 1,
+      flex: 1,
+      alignItems: 'center' as const,
+      minHeight: 38,
+      justifyContent: 'center' as const,
+      paddingHorizontal: 4,
+    },
+    tabChipActive: {
+      backgroundColor: p.lime,
+      borderColor: p.lime,
+    },
+    tabChipText: {
+      color: p.textSecondary,
+      fontSize: 13,
+      fontWeight: '800' as const,
+    },
+    tabChipTextActive: {
+      color: p.onLime,
+    },
+    pager: { flex: 1 },
+    page: { flex: 1 },
     content: { gap: 14, padding: 18, paddingBottom: 28 },
     topRow: {
       alignItems: 'center' as const,

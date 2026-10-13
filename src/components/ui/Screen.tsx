@@ -1,8 +1,9 @@
 import { type ReactNode } from 'react';
 import { ScrollView, StyleSheet, View, type ViewStyle } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useTheme } from '../../contexts/ThemeContext';
+import { useImmersiveTopPad } from '../../hooks/useImmersiveTopPad';
 
 interface ScreenProps {
   children: ReactNode;
@@ -13,9 +14,20 @@ interface ScreenProps {
 
 export function Screen({ children, footer, header, contentStyle }: ScreenProps) {
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
+  const topPad = useImmersiveTopPad();
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
+    <View
+      style={[
+        styles.safeArea,
+        {
+          backgroundColor: colors.background,
+          paddingTop: topPad,
+          paddingBottom: insets.bottom,
+        },
+      ]}
+    >
       {header}
       <ScrollView
         contentContainerStyle={[styles.content, contentStyle]}
@@ -25,7 +37,7 @@ export function Screen({ children, footer, header, contentStyle }: ScreenProps) 
         {children}
       </ScrollView>
       {footer ? <View style={styles.footer}>{footer}</View> : null}
-    </SafeAreaView>
+    </View>
   );
 }
 

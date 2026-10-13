@@ -28,6 +28,15 @@ export type ExperienceLevel = 'beginner' | 'intermediate' | 'advanced';
 
 export type WorkoutMode = 'gym' | 'home' | 'calisthenics';
 
+export type HomeEquipment =
+  | 'dumbbells'
+  | 'resistance_bands'
+  | 'pull_up_bar'
+  | 'kettlebell'
+  | 'bench'
+  | 'barbell'
+  | 'yoga_mat';
+
 export type FitnessSetupStepId =
   | 'welcome'
   | 'basic-info'
@@ -58,6 +67,8 @@ export type FitnessProfilePayload = {
   workoutExperience: ExperienceLevel;
   workoutDaysPerWeek: number;
   workoutMode?: WorkoutMode;
+  /** Optional gear when training at home / calisthenics. */
+  equipmentAvailable?: HomeEquipment[] | null;
   targetWeightKg?: number | null;
   targetBodyFatPercent?: number | null;
   allergies?: string | null;
@@ -76,6 +87,7 @@ export type FitnessSetupFormValues = {
   workoutExperience: ExperienceLevel | '';
   workoutDaysPerWeek: number | '';
   workoutMode: WorkoutMode | '';
+  equipmentAvailable: HomeEquipment[];
   targetWeightKg: number | '';
   targetBodyFatPercent: number | '';
   allergies: string;
@@ -181,12 +193,18 @@ export type WorkoutExercise = {
   /** Catalog exercise id when distinct from plan-row id. */
   exerciseId?: string | null;
   name: string;
+  muscleGroup?: string | null;
+  difficulty?: string | null;
+  notes?: string | null;
   targetSets: number;
   targetReps: string | number | null;
   targetWeightKg: number | null;
   restSeconds: number;
+  sortOrder?: number | null;
   completed: boolean;
   skipped?: boolean;
+  replaced?: boolean;
+  replacementName?: string | null;
   loggedSets: WorkoutSetLog[];
   imageUrl?: string | null;
 };
@@ -201,9 +219,43 @@ export type WorkoutDay = {
 
 export type WorkoutSessionStatus = 'idle' | 'active' | 'paused' | 'finished';
 
+export type WorkoutSessionAnalytics = {
+  volumeKg: number;
+  workoutVolume?: number;
+  durationMinutes?: number | null;
+  durationSeconds?: number | null;
+  elapsedSeconds?: number | null;
+  exercisesCompleted: number;
+  exercisesSkipped: number;
+  exercisesTotal: number;
+  setsCompleted: number;
+  setsPlanned: number;
+  caloriesBurned: number | null;
+  completionPercent: number;
+};
+
 export type WorkoutSession = {
   sessionId: string;
   status: string;
+  workoutPlanDayId?: string | null;
+  startedAt?: string | null;
+  createdAt?: string | null;
+  pausedAt?: string | null;
+  completedAt?: string | null;
+  totalPausedSeconds?: number | null;
   durationSeconds?: number | null;
+  elapsedSeconds?: number | null;
+  durationMinutes?: number | null;
+  caloriesBurned?: number | null;
+  volumeKg?: number | null;
+  workoutVolume?: number | null;
+  exercisesCompleted?: number | null;
+  exercisesSkipped?: number | null;
+  exercisesTotal?: number | null;
+  setsCompleted?: number | null;
+  setsPlanned?: number | null;
+  completionPercent?: number | null;
+  resumed?: boolean;
   exercises?: WorkoutExercise[];
+  analytics?: WorkoutSessionAnalytics | null;
 };

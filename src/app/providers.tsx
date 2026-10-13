@@ -1,9 +1,9 @@
 import { NavigationContainer, DefaultTheme, DarkTheme } from '@react-navigation/native';
-import { StatusBar } from 'expo-status-bar';
 import { useEffect, type ReactNode } from 'react';
 import Toast from 'react-native-toast-message';
 import { Provider as ReduxProvider } from 'react-redux';
 
+import { ImmersiveStatusBar } from '../components/app/ImmersiveStatusBar';
 import { VersionGate } from '../components/app/VersionGate';
 import { ThemeProvider, useTheme } from '../contexts/ThemeContext';
 import { RootNavigator } from '../navigation/RootNavigator';
@@ -40,7 +40,7 @@ function NavigationRoot() {
 
   return (
     <>
-      <StatusBar style={resolvedTheme === 'dark' ? 'light' : 'dark'} />
+      <ImmersiveStatusBar />
       <NavigationContainer theme={navigationTheme}>
         <RootNavigator />
       </NavigationContainer>

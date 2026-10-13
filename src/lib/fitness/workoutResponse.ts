@@ -4,6 +4,7 @@ import type {
   WorkoutDay,
   WorkoutExercise,
   WorkoutSession,
+  WorkoutSessionAnalytics,
   WorkoutSetLog,
 } from '../../types/fitness';
 
@@ -24,6 +25,12 @@ function readNullableNumber(value: unknown) {
 
 function asRecord(value: unknown): Record<string, unknown> | null {
   return value && typeof value === 'object' ? (value as Record<string, unknown>) : null;
+}
+
+function toIsoOrNull(value: unknown): string | null {
+  if (typeof value === 'string' && value.trim()) return value.trim();
+  if (value instanceof Date) return value.toISOString();
+  return null;
 }
 
 function normalizeSet(raw: unknown, index: number): WorkoutSetLog | null {
@@ -59,7 +66,13 @@ function normalizeExercise(raw: unknown, index: number): WorkoutExercise | null 
 
   const setsRaw = Array.isArray(record.loggedSets)
     ? record.loggedSets
-    : Array.isArray(record.sets)
+    : Array.isArray(record.sets) &&
+        record.sets.some(
+          (item) =>
+            item &&
+            typeof item === 'object' &&
+            ('reps' in (item as object) || 'setNumber' in (item as object)),
+        )
       ? record.sets
       : [];
   const loggedSets = setsRaw
@@ -67,11 +80,28 @@ function normalizeExercise(raw: unknown, index: number): WorkoutExercise | null 
     .filter((item): item is WorkoutSetLog => item !== null);
 
   const status = readString(record.status).toLowerCase();
+  const replacementName =
+    readString(record.replacementName ?? record.replacement_name) ||
+    parseReplacementName(readString(record.notes)) ||
+    null;
+  const replaced = Boolean(
+    record.replaced === true || status === 'replaced' || replacementName,
+  );
 
   return {
     id: id || `exercise-${index}`,
     exerciseId,
     name,
+    muscleGroup:
+      readString(
+        nested?.muscleGroup ??
+          record.muscleGroup ??
+          record.muscle_group ??
+          record.focus,
+      ) || null,
+    difficulty:
+      readString(nested?.difficulty ?? record.difficulty) || null,
+    notes: readString(record.notes) || null,
     targetSets: readNumber(record.targetSets ?? record.sets, 3),
     targetReps: (record.targetReps ?? record.reps ?? null) as
       | string
@@ -84,17 +114,21 @@ function normalizeExercise(raw: unknown, index: number): WorkoutExercise | null 
       record.restSeconds ?? record.rest ?? record.restTime,
       60,
     ),
+    sortOrder: readNullableNumber(record.sortOrder ?? record.order),
     completed: Boolean(
       record.completed === true ||
         record.isCompleted === true ||
         status === 'completed' ||
-        status === 'done',
+        status === 'done' ||
+        replaced,
     ),
     skipped: Boolean(
       record.skipped === true ||
         record.isSkipped === true ||
         status === 'skipped',
     ),
+    replaced,
+    replacementName,
     loggedSets,
     imageUrl:
       pickMediaUrl(record) ??
@@ -103,12 +137,116 @@ function normalizeExercise(raw: unknown, index: number): WorkoutExercise | null 
   };
 }
 
+function parseReplacementName(notes: string) {
+  if (!notes) return '';
+  const match = notes.match(/Replaced with:\s*([^|]+)/i);
+  return match?.[1]?.trim() || '';
+}
+
+function normalizeAnalytics(
+  raw: unknown,
+  fallback: Partial<WorkoutSessionAnalytics> = {},
+): WorkoutSessionAnalytics | null {
+  const record = asRecord(raw);
+  if (!record && !Object.keys(fallback).length) return null;
+  const source = record ?? {};
+  return {
+    volumeKg: readNumber(
+      source.volumeKg ?? source.workoutVolume ?? fallback.volumeKg,
+    ),
+    workoutVolume: readNumber(
+      source.workoutVolume ?? source.volumeKg ?? fallback.workoutVolume,
+    ),
+    durationMinutes: readNullableNumber(
+      source.durationMinutes ??
+        source.workoutDurationMinutes ??
+        fallback.durationMinutes,
+    ),
+    durationSeconds: readNullableNumber(
+      source.durationSeconds ?? source.elapsedSeconds ?? fallback.durationSeconds,
+    ),
+    elapsedSeconds: readNullableNumber(
+      source.elapsedSeconds ?? source.durationSeconds ?? fallback.elapsedSeconds,
+    ),
+    exercisesCompleted: readNumber(
+      source.exercisesCompleted ?? fallback.exercisesCompleted,
+    ),
+    exercisesSkipped: readNumber(
+      source.exercisesSkipped ?? fallback.exercisesSkipped,
+    ),
+    exercisesTotal: readNumber(
+      source.exercisesTotal ?? fallback.exercisesTotal,
+    ),
+    setsCompleted: readNumber(source.setsCompleted ?? fallback.setsCompleted),
+    setsPlanned: readNumber(source.setsPlanned ?? fallback.setsPlanned),
+    caloriesBurned: readNullableNumber(
+      source.caloriesBurned ?? source.calories ?? fallback.caloriesBurned,
+    ),
+    completionPercent: readNumber(
+      source.completionPercent ?? fallback.completionPercent,
+    ),
+  };
+}
+
+/**
+ * Active workout seconds excluding paused time.
+ * While paused, freezes at pausedAt so the clock does not keep growing.
+ */
+export function computeElapsedSeconds(input: {
+  startedAt?: string | null;
+  createdAt?: string | null;
+  pausedAt?: string | null;
+  completedAt?: string | null;
+  totalPausedSeconds?: number | null;
+  elapsedSeconds?: number | null;
+  durationSeconds?: number | null;
+  durationMinutes?: number | null;
+  nowMs?: number;
+}): number {
+  if (
+    input.elapsedSeconds != null &&
+    Number.isFinite(input.elapsedSeconds) &&
+    input.elapsedSeconds >= 0
+  ) {
+    return Math.floor(input.elapsedSeconds);
+  }
+  if (
+    input.durationSeconds != null &&
+    Number.isFinite(input.durationSeconds) &&
+    input.durationSeconds >= 0
+  ) {
+    return Math.floor(input.durationSeconds);
+  }
+
+  const started =
+    Date.parse(input.startedAt ?? '') || Date.parse(input.createdAt ?? '');
+  if (!Number.isFinite(started) || started <= 0) {
+    if (input.durationMinutes != null && Number.isFinite(input.durationMinutes)) {
+      return Math.max(0, Math.round(input.durationMinutes * 60));
+    }
+    return 0;
+  }
+
+  const completed = input.completedAt ? Date.parse(input.completedAt) : NaN;
+  const paused = input.pausedAt ? Date.parse(input.pausedAt) : NaN;
+  const end = Number.isFinite(completed)
+    ? completed
+    : Number.isFinite(paused)
+      ? paused
+      : (input.nowMs ?? Date.now());
+  const pausedTotal = Math.max(0, input.totalPausedSeconds ?? 0);
+  return Math.max(0, Math.floor((end - started) / 1000) - pausedTotal);
+}
+
 export function unwrapTodayWorkout(response: unknown): WorkoutDay | null {
   const data = unwrapFitnessData<Record<string, unknown>>(response);
   if (!data || typeof data !== 'object') return null;
 
   const dayRaw =
     (data.today && typeof data.today === 'object' ? data.today : null) ??
+    (data.workoutPlanDay && typeof data.workoutPlanDay === 'object'
+      ? data.workoutPlanDay
+      : null) ??
     (data.day && typeof data.day === 'object' ? data.day : null) ??
     data;
 
@@ -123,8 +261,9 @@ export function unwrapTodayWorkout(response: unknown): WorkoutDay | null {
 
   return {
     id: id || 'today',
-    label: readString(record.label ?? record.name) || null,
-    focus: readString(record.focus ?? record.focusArea) || null,
+    label:
+      readString(record.label ?? record.title ?? record.name) || null,
+    focus: readString(record.focus ?? record.focusArea ?? record.title) || null,
     estimatedMinutes: readNullableNumber(
       record.estimatedMinutes ?? record.durationMinutes,
     ),
@@ -138,6 +277,14 @@ export function unwrapActiveWorkoutToday(response: unknown): WorkoutDay | null {
 
   if (data.today && typeof data.today === 'object') {
     return unwrapTodayWorkout({ success: true, message: '', data: data.today });
+  }
+
+  if (data.workoutPlanDay && typeof data.workoutPlanDay === 'object') {
+    return unwrapTodayWorkout({
+      success: true,
+      message: '',
+      data: data.workoutPlanDay,
+    });
   }
 
   const days = Array.isArray(data.days) ? data.days : [];
@@ -156,23 +303,124 @@ export function unwrapWorkoutSession(response: unknown): WorkoutSession | null {
     record.session && typeof record.session === 'object'
       ? (record.session as Record<string, unknown>)
       : record;
+  const analyticsRaw = asRecord(record.analytics) ?? asRecord(nested.analytics);
   const sessionId = readString(
-    nested.sessionId ?? nested.id ?? nested.workoutSessionId ?? record.sessionId,
+    record.sessionId ??
+      nested.sessionId ??
+      nested.id ??
+      nested.workoutSessionId,
   );
   if (!sessionId) return null;
 
-  const exercisesRaw = Array.isArray(nested.exercises)
-    ? nested.exercises
-    : Array.isArray(record.exercises)
-      ? record.exercises
-      : [];
+  const day =
+    nested.workoutPlanDay && typeof nested.workoutPlanDay === 'object'
+      ? (nested.workoutPlanDay as Record<string, unknown>)
+      : null;
+
+  const exercisesRaw = Array.isArray(record.exercises)
+    ? record.exercises
+    : Array.isArray(nested.exercises)
+      ? nested.exercises
+      : Array.isArray(day?.exercises)
+        ? day.exercises
+        : [];
+
+  const createdAt =
+    toIsoOrNull(record.createdAt) ??
+    toIsoOrNull(record.startedAt) ??
+    toIsoOrNull(nested.createdAt) ??
+    toIsoOrNull(nested.startedAt);
+  const pausedAt =
+    toIsoOrNull(record.pausedAt) ?? toIsoOrNull(nested.pausedAt);
+  const completedAt =
+    toIsoOrNull(record.completedAt) ?? toIsoOrNull(nested.completedAt);
+  const totalPausedSeconds = readNullableNumber(
+    record.totalPausedSeconds ?? nested.totalPausedSeconds,
+  );
+
+  const analytics = normalizeAnalytics(analyticsRaw, {
+    volumeKg: readNumber(record.volumeKg ?? record.workoutVolume),
+    caloriesBurned: readNullableNumber(record.caloriesBurned),
+    exercisesCompleted: readNumber(record.exercisesCompleted),
+    exercisesSkipped: readNumber(record.exercisesSkipped),
+    exercisesTotal: readNumber(record.exercisesTotal),
+    setsCompleted: readNumber(record.setsCompleted),
+    setsPlanned: readNumber(record.setsPlanned),
+    completionPercent: readNumber(record.completionPercent),
+  });
+
+  const elapsedSeconds = computeElapsedSeconds({
+    startedAt: createdAt,
+    createdAt,
+    pausedAt,
+    completedAt,
+    totalPausedSeconds,
+    elapsedSeconds: readNullableNumber(
+      record.elapsedSeconds ??
+        nested.elapsedSeconds ??
+        analytics?.elapsedSeconds,
+    ),
+    durationSeconds: readNullableNumber(
+      record.durationSeconds ?? nested.durationSeconds,
+    ),
+    durationMinutes: readNullableNumber(
+      record.durationMinutes ?? nested.durationMinutes,
+    ),
+  });
 
   return {
     sessionId,
-    status: readString(nested.status ?? record.status) || 'active',
-    durationSeconds: readNullableNumber(
-      nested.durationSeconds ?? nested.elapsedSeconds,
+    status: readString(record.status ?? nested.status) || 'active',
+    workoutPlanDayId:
+      readString(
+        record.workoutPlanDayId ?? nested.workoutPlanDayId ?? day?.id,
+      ) || null,
+    startedAt: createdAt,
+    createdAt,
+    pausedAt,
+    completedAt,
+    totalPausedSeconds,
+    durationSeconds: elapsedSeconds,
+    elapsedSeconds,
+    durationMinutes: readNullableNumber(
+      record.durationMinutes ??
+        nested.durationMinutes ??
+        analytics?.durationMinutes,
     ),
+    caloriesBurned: readNullableNumber(
+      record.caloriesBurned ??
+        nested.caloriesBurned ??
+        analytics?.caloriesBurned,
+    ),
+    volumeKg: readNullableNumber(
+      record.volumeKg ??
+        record.workoutVolume ??
+        nested.volumeKg ??
+        analytics?.volumeKg,
+    ),
+    workoutVolume: readNullableNumber(
+      record.workoutVolume ?? record.volumeKg ?? analytics?.workoutVolume,
+    ),
+    exercisesCompleted: readNullableNumber(
+      record.exercisesCompleted ?? analytics?.exercisesCompleted,
+    ),
+    exercisesSkipped: readNullableNumber(
+      record.exercisesSkipped ?? analytics?.exercisesSkipped,
+    ),
+    exercisesTotal: readNullableNumber(
+      record.exercisesTotal ?? analytics?.exercisesTotal,
+    ),
+    setsCompleted: readNullableNumber(
+      record.setsCompleted ?? analytics?.setsCompleted,
+    ),
+    setsPlanned: readNullableNumber(
+      record.setsPlanned ?? analytics?.setsPlanned,
+    ),
+    completionPercent: readNullableNumber(
+      record.completionPercent ?? analytics?.completionPercent,
+    ),
+    resumed: Boolean(record.resumed),
+    analytics,
     exercises: exercisesRaw
       .map((item, index) => normalizeExercise(item, index))
       .filter((item): item is WorkoutExercise => item !== null),
@@ -199,9 +447,16 @@ export function mergeSessionExercises(
       ...exercise,
       ...live,
       name: live.name || exercise.name,
+      muscleGroup: live.muscleGroup ?? exercise.muscleGroup,
+      difficulty: live.difficulty ?? exercise.difficulty,
+      notes: live.notes ?? exercise.notes,
       imageUrl: live.imageUrl ?? exercise.imageUrl,
       restSeconds: live.restSeconds || exercise.restSeconds,
       loggedSets: live.loggedSets.length ? live.loggedSets : exercise.loggedSets,
+      completed: live.completed || exercise.completed,
+      skipped: live.skipped || exercise.skipped,
+      replaced: live.replaced || exercise.replaced,
+      replacementName: live.replacementName ?? exercise.replacementName,
     };
   });
 }

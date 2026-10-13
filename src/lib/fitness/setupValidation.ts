@@ -107,6 +107,12 @@ export function toFitnessProfilePayload(
       values.workoutExperience as FitnessProfilePayload['workoutExperience'],
     workoutDaysPerWeek: Number(values.workoutDaysPerWeek),
     workoutMode: values.workoutMode as FitnessProfilePayload['workoutMode'],
+    equipmentAvailable:
+      values.workoutMode === 'gym'
+        ? []
+        : values.equipmentAvailable.length
+          ? values.equipmentAvailable
+          : [],
     targetWeightKg:
       values.targetWeightKg === '' ? null : Number(values.targetWeightKg),
     targetBodyFatPercent:

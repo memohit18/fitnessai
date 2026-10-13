@@ -8,13 +8,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import Toast from 'react-native-toast-message';
-
-import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
-import {
-  type CompositeNavigationProp,
-  useNavigation,
-} from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { getFitnessProfile } from '../../api/fitnessApi';
@@ -24,14 +18,11 @@ import {
 } from '../../lib/fitness/reviewLabels';
 import { hasCompletedFitnessOnboarding } from '../../lib/fitness/fitnessResponse';
 import { useTheme } from '../../contexts/ThemeContext';
-import type { AppStackParamList, MainTabParamList } from '../../navigation/types';
+import type { AppStackParamList } from '../../navigation/types';
 import type { FitnessProfile } from '../../types/fitness';
 import { getApiErrorMessage } from '../../utils/api';
 
-type ProfileNav = CompositeNavigationProp<
-  BottomTabNavigationProp<MainTabParamList, 'Profile'>,
-  NativeStackNavigationProp<AppStackParamList>
->;
+type ProfileNav = NativeStackNavigationProp<AppStackParamList>;
 
 function isRemoteImage(url?: string) {
   if (!url) return false;
@@ -148,12 +139,7 @@ export function FitnessProfilePanel() {
           <Pressable
             accessibilityRole="button"
             onPress={() =>
-              Toast.show({
-                type: 'info',
-                text1: 'Transformation is next',
-                text2: 'This screen will open on mobile soon.',
-                position: 'bottom',
-              })
+              navigation.navigate('MainTabs', { screen: 'Transformation' })
             }
             style={({ pressed }) => [
               styles.secondaryBtn,

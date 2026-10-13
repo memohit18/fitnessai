@@ -6,10 +6,11 @@ export type AuthStackParamList = {
 };
 
 export type MainTabParamList = {
-  Home: undefined;
+  Analytics: undefined;
+  Profile: undefined;
   Workout: undefined;
   Meals: undefined;
-  Profile: undefined;
+  Transformation: undefined;
 };
 
 export type AppStackParamList = {

@@ -25,6 +25,9 @@ module.exports = {
       buildNumber: '1',
       infoPlist: {
         CFBundleDisplayName: 'DIP',
+        // Immersive: hide status bar; swipe from top still opens system shade.
+        UIStatusBarHidden: true,
+        UIViewControllerBasedStatusBarAppearance: false,
       },
       ...(iosGoogleServicesExists ? { googleServicesFile: iosGoogleServicesPath } : {}),
     },
@@ -45,6 +48,13 @@ module.exports = {
         'expo-dev-client',
         {
           toolsButton: false,
+        },
+      ],
+      [
+        'expo-status-bar',
+        {
+          hidden: true,
+          style: 'light',
         },
       ],
       'expo-font',

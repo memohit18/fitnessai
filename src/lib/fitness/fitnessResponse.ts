@@ -1,4 +1,25 @@
-import type { FitnessProfile, PhysiqueGoal } from '../../types/fitness';
+import type {
+  FitnessProfile,
+  HomeEquipment,
+  PhysiqueGoal,
+} from '../../types/fitness';
+import { HOME_EQUIPMENT_OPTIONS } from './constants';
+
+const HOME_EQUIPMENT_VALUES = new Set(
+  HOME_EQUIPMENT_OPTIONS.map((option) => option.value),
+);
+
+function normalizeEquipmentAvailable(value: unknown): HomeEquipment[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter(
+      (item): item is string => typeof item === 'string' && item.trim().length > 0,
+    )
+    .map((item) => item.trim())
+    .filter((item): item is HomeEquipment =>
+      HOME_EQUIPMENT_VALUES.has(item as HomeEquipment),
+    );
+}
 
 type FitnessApiEnvelope<T> = {
   success: boolean;
@@ -139,6 +160,9 @@ export function unwrapFitnessProfile(response: unknown): FitnessProfile | null {
     ]),
     workoutMode: (readString(profile, ['workoutMode', 'workout_mode']) ||
       'gym') as FitnessProfile['workoutMode'],
+    equipmentAvailable: normalizeEquipmentAvailable(
+      profile.equipmentAvailable ?? profile.equipment_available,
+    ),
     targetWeightKg: readNullableNumber(profile, [
       'targetWeightKg',
       'target_weight_kg',

@@ -14,6 +14,8 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+
+import { useImmersiveTopPad } from '../../hooks/useImmersiveTopPad';
 import { z } from 'zod';
 
 import { googleLogin, login } from '../../api/authApi';
@@ -41,6 +43,7 @@ type LoginNavigation = NativeStackNavigationProp<AuthStackParamList, 'Login'>;
 export function LoginScreen() {
   const navigation = useNavigation<LoginNavigation>();
   const { colors } = useTheme();
+  const topPad = useImmersiveTopPad();
   const { signIn } = useAuth();
   const [rememberMe, setRememberMe] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
@@ -119,7 +122,10 @@ export function LoginScreen() {
 
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
-      <SafeAreaView style={styles.safeArea}>
+      <SafeAreaView
+        style={[styles.safeArea, { paddingTop: topPad }]}
+        edges={['left', 'right', 'bottom']}
+      >
         <View style={styles.topBar}>
           <ThemeToggle />
         </View>

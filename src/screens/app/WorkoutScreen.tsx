@@ -9,6 +9,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import Toast from 'react-native-toast-message';
 
@@ -21,6 +22,7 @@ import {
   getTodayWorkout,
   logWorkoutSet,
   pauseWorkoutSession,
+  replaceWorkoutExercise,
   resumeWorkoutSession,
   startWorkoutSession,
   updateExerciseImage,
@@ -30,12 +32,14 @@ import { ImageUploadThumb } from '../../components/fitness/ImageUploadThumb';
 import type { FitnessPalette } from '../../constants/fitnessPalette';
 import { useFitnessPalette, useFitnessStyles } from '../../hooks/useFitnessPalette';
 import {
+  computeElapsedSeconds,
   formatClock,
   mergeSessionExercises,
 } from '../../lib/fitness/workoutResponse';
 import type {
   WorkoutDay,
   WorkoutExercise,
+  WorkoutSession,
   WorkoutSessionStatus,
 } from '../../types/fitness';
 import { getApiErrorMessage } from '../../utils/api';
@@ -50,6 +54,46 @@ function mapStatus(raw?: string | null): WorkoutSessionStatus {
     return 'active';
   }
   return 'idle';
+}
+
+function parseTargetReps(value: string | number | null | undefined) {
+  if (value == null) return 10;
+  if (typeof value === 'number') return value;
+  const match = String(value).match(/\d+/);
+  return match ? Number(match[0]) : 10;
+}
+
+function sessionVolumeKg(exercises: WorkoutExercise[]) {
+  return exercises.reduce((total, exercise) => {
+    return (
+      total +
+      exercise.loggedSets.reduce((sum, set) => {
+        const reps = set.reps ?? 0;
+        const weight = set.weightKg ?? 0;
+        return sum + reps * weight;
+      }, 0)
+    );
+  }, 0);
+}
+
+function estimateCalories(elapsedSeconds: number, volumeKg: number) {
+  const fromTime = Math.round(elapsedSeconds / 60) * 6;
+  const fromVolume = Math.round(volumeKg / 40);
+  return Math.max(0, fromTime + fromVolume);
+}
+
+function applySessionTiming(session: WorkoutSession | null | undefined) {
+  if (!session) return 0;
+  return computeElapsedSeconds({
+    startedAt: session.startedAt,
+    createdAt: session.createdAt,
+    pausedAt: session.pausedAt,
+    completedAt: session.completedAt,
+    totalPausedSeconds: session.totalPausedSeconds,
+    elapsedSeconds: session.elapsedSeconds,
+    durationSeconds: session.durationSeconds,
+    durationMinutes: session.durationMinutes,
+  });
 }
 
 export function WorkoutScreen() {
@@ -70,8 +114,27 @@ export function WorkoutScreen() {
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [restSecondsLeft, setRestSecondsLeft] = useState(0);
   const [activeExerciseId, setActiveExerciseId] = useState<string | null>(null);
-  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [swapExerciseId, setSwapExerciseId] = useState<string | null>(null);
+  const [sessionMeta, setSessionMeta] = useState<WorkoutSession | null>(null);
   const hasLoadedRef = useRef(false);
+
+  const hydrateSession = useCallback((session: WorkoutSession | null) => {
+    if (!session?.sessionId) {
+      setSessionId(null);
+      setSessionStatus('idle');
+      setElapsedSeconds(0);
+      setSessionExercises([]);
+      setSessionMeta(null);
+      setActiveExerciseId(null);
+      return;
+    }
+    const mapped = mapStatus(session.status);
+    setSessionId(session.sessionId);
+    setSessionStatus(mapped);
+    setElapsedSeconds(applySessionTiming(session));
+    setSessionExercises(session.exercises ?? []);
+    setSessionMeta(session);
+  }, []);
 
   const exercises = useMemo(
     () => mergeSessionExercises(today?.exercises ?? [], sessionExercises),
@@ -80,8 +143,56 @@ export function WorkoutScreen() {
 
   const activeExercise =
     exercises.find((item) => item.id === activeExerciseId) ??
-    exercises.find((item) => !item.completed && !item.skipped) ??
+    exercises.find(
+      (item) => !item.completed && !item.skipped && !item.replaced,
+    ) ??
     null;
+
+  const upcoming = exercises.filter(
+    (item) =>
+      item.id !== activeExercise?.id &&
+      !item.completed &&
+      !item.skipped &&
+      !item.replaced,
+  );
+  const finished = exercises.filter(
+    (item) => item.completed || item.skipped || item.replaced,
+  );
+
+  const volumeKg = useMemo(() => {
+    const fromApi =
+      sessionMeta?.volumeKg ??
+      sessionMeta?.workoutVolume ??
+      sessionMeta?.analytics?.volumeKg ??
+      sessionMeta?.analytics?.workoutVolume;
+    if (fromApi != null && fromApi > 0) return fromApi;
+    return sessionVolumeKg(exercises);
+  }, [exercises, sessionMeta]);
+  const caloriesBurned =
+    sessionMeta?.caloriesBurned ??
+    sessionMeta?.analytics?.caloriesBurned ??
+    estimateCalories(elapsedSeconds, volumeKg);
+  const setsCompleted =
+    sessionMeta?.setsCompleted ??
+    sessionMeta?.analytics?.setsCompleted ??
+    exercises.reduce(
+      (sum, item) => sum + item.loggedSets.filter((set) => set.completed).length,
+      0,
+    );
+  const setsPlanned =
+    sessionMeta?.setsPlanned ??
+    sessionMeta?.analytics?.setsPlanned ??
+    exercises.reduce((sum, item) => sum + item.targetSets, 0);
+  const completionPercent =
+    sessionMeta?.completionPercent ??
+    sessionMeta?.analytics?.completionPercent ??
+    (exercises.length
+      ? Math.round((finished.length / exercises.length) * 100)
+      : 0);
+  const restTarget = activeExercise?.restSeconds ?? 90;
+  const sessionLive = sessionStatus === 'active' || sessionStatus === 'paused';
+  const focusLabel =
+    today?.focus || today?.label || 'Training day';
 
   const load = useCallback(async (mode: 'full' | 'soft' = 'full') => {
     if (mode === 'full') {
@@ -99,25 +210,19 @@ export function WorkoutScreen() {
       if (activeSession?.sessionId) {
         const mapped = mapStatus(activeSession.status);
         if (mapped === 'active' || mapped === 'paused') {
-          setSessionId(activeSession.sessionId);
-          setSessionStatus(mapped);
-          setElapsedSeconds(activeSession.durationSeconds ?? 0);
-          setSessionExercises(activeSession.exercises ?? []);
+          hydrateSession(activeSession);
           const firstOpen =
             (activeSession.exercises ?? workout?.exercises ?? []).find(
-              (item) => !item.completed && !item.skipped,
+              (item) => !item.completed && !item.skipped && !item.replaced,
             ) ?? null;
           setActiveExerciseId(firstOpen?.id ?? null);
-          setExpandedId(firstOpen?.id ?? null);
+        } else if (mode === 'full') {
+          hydrateSession(null);
+          setRestSecondsLeft(0);
         }
       } else if (mode === 'full') {
-        setSessionId(null);
-        setSessionStatus('idle');
-        setElapsedSeconds(0);
+        hydrateSession(null);
         setRestSecondsLeft(0);
-        setSessionExercises([]);
-        setActiveExerciseId(null);
-        setExpandedId(null);
       }
       setStatus('ready');
     } catch (err) {
@@ -126,7 +231,7 @@ export function WorkoutScreen() {
     } finally {
       setRefreshing(false);
     }
-  }, []);
+  }, [hydrateSession]);
 
   useFocusEffect(
     useCallback(() => {
@@ -158,10 +263,13 @@ export function WorkoutScreen() {
       getActiveWorkoutSession().catch(() => null),
     ]);
     setToday(workout);
-    if (activeSession?.exercises) {
-      setSessionExercises(activeSession.exercises);
+    if (activeSession?.sessionId) {
+      const mapped = mapStatus(activeSession.status);
+      if (mapped === 'active' || mapped === 'paused') {
+        hydrateSession(activeSession);
+      }
     }
-  }, []);
+  }, [hydrateSession]);
 
   const onGenerate = async () => {
     setGenerating(true);
@@ -191,23 +299,27 @@ export function WorkoutScreen() {
     setBusy(true);
     try {
       const session = await startWorkoutSession(today.id);
-      setSessionId(session.sessionId);
-      setSessionStatus('active');
-      setElapsedSeconds(0);
+      hydrateSession(session);
       setRestSecondsLeft(0);
+      const merged = mergeSessionExercises(
+        today.exercises,
+        session.exercises ?? [],
+      );
       const first =
-        exercises.find((item) => !item.completed && !item.skipped) ??
-        exercises[0] ??
+        merged.find(
+          (item) => !item.completed && !item.skipped && !item.replaced,
+        ) ??
+        merged[0] ??
         null;
       setActiveExerciseId(first?.id ?? null);
-      setExpandedId(first?.id ?? null);
       Toast.show({
         type: 'success',
-        text1: 'Session started',
-        text2: first ? `Now: ${first.name}` : undefined,
+        text1: session.resumed ? 'Session resumed' : 'Session started',
+        text2: first
+          ? `${first.name} · ${formatClock(applySessionTiming(session))}`
+          : formatClock(applySessionTiming(session)),
         position: 'bottom',
       });
-      await refreshLive();
     } catch (err) {
       Toast.show({
         type: 'error',
@@ -224,8 +336,12 @@ export function WorkoutScreen() {
     if (!sessionId) return;
     setBusy(true);
     try {
-      await pauseWorkoutSession(sessionId);
-      setSessionStatus('paused');
+      const session = await pauseWorkoutSession(sessionId);
+      if (session) {
+        hydrateSession(session);
+      } else {
+        setSessionStatus('paused');
+      }
       Toast.show({ type: 'info', text1: 'Workout paused', position: 'bottom' });
     } catch (err) {
       Toast.show({
@@ -243,9 +359,20 @@ export function WorkoutScreen() {
     if (!sessionId) return;
     setBusy(true);
     try {
-      await resumeWorkoutSession(sessionId);
-      setSessionStatus('active');
-      Toast.show({ type: 'success', text1: 'Workout resumed', position: 'bottom' });
+      const session = await resumeWorkoutSession(sessionId);
+      if (session) {
+        hydrateSession(session);
+      } else {
+        setSessionStatus('active');
+      }
+      Toast.show({
+        type: 'success',
+        text1: 'Workout resumed',
+        text2: session
+          ? `Continuing from ${formatClock(applySessionTiming(session))}`
+          : undefined,
+        position: 'bottom',
+      });
     } catch (err) {
       Toast.show({
         type: 'error',
@@ -262,11 +389,16 @@ export function WorkoutScreen() {
     if (!sessionId) return;
     setBusy(true);
     try {
-      await endWorkoutSession(sessionId, { force: true });
+      await endWorkoutSession(sessionId, {
+        force: true,
+        caloriesBurned:
+          typeof caloriesBurned === 'number' ? caloriesBurned : undefined,
+      });
       setSessionStatus('finished');
       setRestSecondsLeft(0);
       setActiveExerciseId(null);
-      setExpandedId(null);
+      setSwapExerciseId(null);
+      setSessionMeta(null);
       Toast.show({
         type: 'success',
         text1: 'Workout finished',
@@ -287,10 +419,14 @@ export function WorkoutScreen() {
 
   const advanceToNext = (currentId: string) => {
     const next = exercises.find(
-      (item) => item.id !== currentId && !item.completed && !item.skipped,
+      (item) =>
+        item.id !== currentId &&
+        !item.completed &&
+        !item.skipped &&
+        !item.replaced,
     );
     setActiveExerciseId(next?.id ?? null);
-    setExpandedId(next?.id ?? null);
+    setSwapExerciseId(null);
   };
 
   const onLogSet = async (
@@ -374,6 +510,54 @@ export function WorkoutScreen() {
     }
   };
 
+  const onReplaceExercise = async (
+    exercise: WorkoutExercise,
+    replacementName: string,
+  ) => {
+    if (!sessionId) {
+      Toast.show({
+        type: 'error',
+        text1: 'Start the workout first',
+        position: 'bottom',
+      });
+      return;
+    }
+    const name = replacementName.trim();
+    if (!name) {
+      Toast.show({
+        type: 'error',
+        text1: 'Enter what you did instead',
+        position: 'bottom',
+      });
+      return;
+    }
+    setBusy(true);
+    try {
+      await replaceWorkoutExercise({
+        exerciseId: exercise.id,
+        sessionId,
+        replacementName: name,
+      });
+      Toast.show({
+        type: 'success',
+        text1: `Logged as ${name}`,
+        text2: `Instead of ${exercise.name}`,
+        position: 'bottom',
+      });
+      advanceToNext(exercise.id);
+      await refreshLive();
+    } catch (err) {
+      Toast.show({
+        type: 'error',
+        text1: 'Replace failed',
+        text2: getApiErrorMessage(err, 'Unable to replace exercise.'),
+        position: 'bottom',
+      });
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const onUploadExerciseImage = async (
     exercise: WorkoutExercise,
     prepared: { uri: string; fileName: string; mimeType: string },
@@ -401,8 +585,6 @@ export function WorkoutScreen() {
     return url;
   };
 
-  const sessionLive = sessionStatus === 'active' || sessionStatus === 'paused';
-
   return (
     <AppShell backgroundColor={p.bg} contentStyle={styles.shell} hideHeader>
       <ScrollView
@@ -415,18 +597,59 @@ export function WorkoutScreen() {
           />
         }
       >
-        <Text style={styles.eyebrow}>Workout</Text>
-        <Text style={styles.title}>
-          {today?.label || today?.focus || 'Today’s session'}
-        </Text>
-        <Text style={styles.muted}>
-          {today?.estimatedMinutes
-            ? `About ${today.estimatedMinutes} min · `
-            : ''}
-          {sessionLive
-            ? `Session ${formatClock(elapsedSeconds)} · ${sessionStatus}`
-            : 'Start to log sets, rest, and track the current exercise.'}
-        </Text>
+        <View style={styles.topMeta}>
+          <View style={styles.activePill}>
+            <View style={styles.activeDot} />
+            <Text style={styles.activePillText}>
+              {sessionLive ? 'Active today' : 'Workout tracking'}
+            </Text>
+          </View>
+        </View>
+
+        <View style={styles.titleRow}>
+          <View style={styles.titleCopy}>
+            <Text style={styles.eyebrow}>
+              Workout · {focusLabel}
+            </Text>
+            <Text style={styles.title}>Today’s session</Text>
+          </View>
+          {sessionLive ? (
+            <View style={styles.liveBadge}>
+              <Text style={styles.liveBadgeText}>Live</Text>
+            </View>
+          ) : null}
+        </View>
+
+        <View style={styles.statsRow}>
+          <View style={styles.statItem}>
+            <Ionicons color={p.lime} name="time-outline" size={14} />
+            <Text style={styles.statText}>
+              {formatClock(elapsedSeconds)} elapsed
+            </Text>
+          </View>
+          {today?.estimatedMinutes ? (
+            <View style={styles.statItem}>
+              <View style={styles.statBullet} />
+              <Text style={styles.statText}>
+                {today.estimatedMinutes}m est. goal
+              </Text>
+            </View>
+          ) : null}
+          <View style={styles.statItem}>
+            <Ionicons color={p.active} name="flame-outline" size={14} />
+            <Text style={[styles.statText, styles.statBurn]}>
+              {Math.round(Number(caloriesBurned) || 0)} kcal burn
+            </Text>
+          </View>
+          {sessionLive ? (
+            <View style={styles.statItem}>
+              <Ionicons color={p.hydrate} name="barbell-outline" size={14} />
+              <Text style={styles.statText}>
+                {setsCompleted}/{setsPlanned || '—'} sets · {completionPercent}%
+              </Text>
+            </View>
+          ) : null}
+        </View>
 
         {status === 'error' ? (
           <View style={styles.card}>
@@ -460,21 +683,26 @@ export function WorkoutScreen() {
 
         {today ? (
           <>
-            <SessionControls
+            <SessionPanel
               busy={busy}
-              sessionStatus={sessionStatus}
+              completionPercent={completionPercent}
               elapsedSeconds={elapsedSeconds}
-              onStart={() => void onStart()}
+              restTarget={restTarget}
+              sessionStatus={sessionStatus}
+              setsCompleted={setsCompleted}
+              setsPlanned={setsPlanned}
+              volumeKg={volumeKg}
+              onFinish={() => void onFinish()}
               onPause={() => void onPause()}
               onResume={() => void onResume()}
-              onFinish={() => void onFinish()}
+              onStart={() => void onStart()}
             />
 
             {restSecondsLeft > 0 && sessionStatus === 'active' ? (
               <View style={styles.restCard}>
                 <View>
-                  <Text style={styles.restLabel}>Rest timer</Text>
-                  <Text style={styles.restClock}>
+                  <Text style={styles.sectionLabel}>Rest timer</Text>
+                  <Text style={styles.bigClock}>
                     {formatClock(restSecondsLeft)}
                   </Text>
                   {activeExercise ? (
@@ -485,50 +713,116 @@ export function WorkoutScreen() {
                 </View>
                 <Pressable
                   onPress={() => setRestSecondsLeft(0)}
-                  style={styles.secondaryBtn}
+                  style={styles.ghostBtn}
                 >
-                  <Text style={styles.secondaryBtnText}>Skip rest</Text>
+                  <Text style={styles.ghostBtnText}>Skip rest</Text>
                 </Pressable>
               </View>
             ) : null}
 
             {sessionLive && activeExercise ? (
-              <View style={styles.nowCard}>
-                <Text style={styles.restLabel}>Now doing</Text>
-                <Text style={styles.cardTitle}>{activeExercise.name}</Text>
-                <Text style={styles.muted}>
-                  {activeExercise.loggedSets.length}/{activeExercise.targetSets}{' '}
-                  sets
-                  {activeExercise.targetReps != null
-                    ? ` · ${activeExercise.targetReps} reps`
-                    : ''}
-                  {activeExercise.restSeconds
-                    ? ` · ${activeExercise.restSeconds}s rest`
-                    : ''}
+              <>
+                <View style={styles.nowBanner}>
+                  <Text style={styles.nowBannerLabel}>Now doing</Text>
+                  <View style={styles.tagPill}>
+                    <Text style={styles.tagPillText}>Primary</Text>
+                  </View>
+                </View>
+                <View style={styles.nowCopy}>
+                  <Text style={styles.nowTitle}>{activeExercise.name}</Text>
+                  <Text style={styles.muted}>
+                    Set {Math.min(activeExercise.loggedSets.length + 1, activeExercise.targetSets)}{' '}
+                    of {activeExercise.targetSets}
+                    {activeExercise.targetReps != null
+                      ? ` · ${activeExercise.targetReps} reps`
+                      : ''}
+                    {activeExercise.restSeconds
+                      ? ` · ${activeExercise.restSeconds}s rest interval`
+                      : ''}
+                  </Text>
+                </View>
+
+                <ActiveExerciseCard
+                  busy={busy}
+                  disabled={sessionStatus === 'paused'}
+                  exercise={activeExercise}
+                  index={exercises.findIndex((item) => item.id === activeExercise.id)}
+                  showSwap={swapExerciseId === activeExercise.id}
+                  onComplete={() => void onCompleteExercise(activeExercise, false)}
+                  onLogSet={(values) => void onLogSet(activeExercise, values)}
+                  onReplace={(name) => void onReplaceExercise(activeExercise, name)}
+                  onSkip={() => void onCompleteExercise(activeExercise, true)}
+                  onToggleSwap={() =>
+                    setSwapExerciseId((current) =>
+                      current === activeExercise.id ? null : activeExercise.id,
+                    )
+                  }
+                  onUpload={(prepared) =>
+                    onUploadExerciseImage(activeExercise, prepared)
+                  }
+                />
+              </>
+            ) : null}
+
+            {upcoming.length > 0 ? (
+              <View style={styles.upcomingHead}>
+                <Text style={styles.upcomingTitle}>Upcoming exercises</Text>
+                <Text style={styles.upcomingCount}>
+                  {upcoming.length} remaining
                 </Text>
               </View>
             ) : null}
 
-            {exercises.map((exercise, index) => (
-              <ExerciseSessionCard
-                key={exercise.id}
-                busy={busy}
-                disabled={!sessionLive || sessionStatus === 'paused'}
-                exercise={exercise}
-                expanded={expandedId === exercise.id}
-                index={index}
-                isActive={activeExerciseId === exercise.id}
-                onComplete={() => void onCompleteExercise(exercise, false)}
-                onExpand={() =>
-                  setExpandedId((current) =>
-                    current === exercise.id ? null : exercise.id,
-                  )
-                }
-                onLogSet={(values) => void onLogSet(exercise, values)}
-                onSkip={() => void onCompleteExercise(exercise, true)}
-                onUpload={(prepared) => onUploadExerciseImage(exercise, prepared)}
-              />
-            ))}
+            {upcoming.map((exercise) => {
+              const index = exercises.findIndex((item) => item.id === exercise.id);
+              return (
+                <UpcomingExerciseCard
+                  key={exercise.id}
+                  busy={busy}
+                  disabled={!sessionLive || sessionStatus === 'paused'}
+                  exercise={exercise}
+                  index={index}
+                  showSwap={swapExerciseId === exercise.id}
+                  onSelect={() => setActiveExerciseId(exercise.id)}
+                  onReplace={(name) => void onReplaceExercise(exercise, name)}
+                  onToggleSwap={() =>
+                    setSwapExerciseId((current) =>
+                      current === exercise.id ? null : exercise.id,
+                    )
+                  }
+                  onUpload={(prepared) =>
+                    onUploadExerciseImage(exercise, prepared)
+                  }
+                />
+              );
+            })}
+
+            {finished.length > 0 ? (
+              <View style={styles.upcomingHead}>
+                <Text style={styles.upcomingTitle}>Completed</Text>
+                <Text style={styles.upcomingCount}>{finished.length}</Text>
+              </View>
+            ) : null}
+
+            {finished.map((exercise) => {
+              const index = exercises.findIndex((item) => item.id === exercise.id);
+              return (
+                <UpcomingExerciseCard
+                  key={exercise.id}
+                  busy={busy}
+                  disabled
+                  exercise={exercise}
+                  index={index}
+                  showSwap={false}
+                  onSelect={() => undefined}
+                  onReplace={() => undefined}
+                  onToggleSwap={() => undefined}
+                  onUpload={(prepared) =>
+                    onUploadExerciseImage(exercise, prepared)
+                  }
+                />
+              );
+            })}
           </>
         ) : null}
       </ScrollView>
@@ -536,9 +830,14 @@ export function WorkoutScreen() {
   );
 }
 
-function SessionControls({
+function SessionPanel({
   sessionStatus,
   elapsedSeconds,
+  volumeKg,
+  restTarget,
+  setsCompleted,
+  setsPlanned,
+  completionPercent,
   busy,
   onStart,
   onPause,
@@ -547,205 +846,507 @@ function SessionControls({
 }: {
   sessionStatus: WorkoutSessionStatus;
   elapsedSeconds: number;
+  volumeKg: number;
+  restTarget: number;
+  setsCompleted: number;
+  setsPlanned: number;
+  completionPercent: number;
   busy: boolean;
   onStart: () => void;
   onPause: () => void;
   onResume: () => void;
   onFinish: () => void;
 }) {
+  const p = useFitnessPalette();
   const styles = useFitnessStyles(buildStyles);
 
   if (sessionStatus === 'idle' || sessionStatus === 'finished') {
     return (
       <Pressable disabled={busy} onPress={onStart} style={styles.primaryBtn}>
         {busy ? (
-          <ActivityIndicator color={styles.primaryBtnText.color} />
+          <ActivityIndicator color={p.onLime} />
         ) : (
-          <Text style={styles.primaryBtnText}>
-            {sessionStatus === 'finished' ? 'Start new session' : 'Start workout'}
-          </Text>
+          <View style={styles.btnInner}>
+            <Ionicons color={p.onLime} name="play" size={16} />
+            <Text style={styles.primaryBtnText}>
+              {sessionStatus === 'finished' ? 'Start new session' : 'Start workout'}
+            </Text>
+          </View>
         )}
       </Pressable>
     );
   }
 
   return (
-    <View style={styles.sessionBar}>
-      <View>
-        <Text style={styles.restLabel}>
-          {sessionStatus === 'paused' ? 'Paused' : 'In progress'}
-        </Text>
-        <Text style={styles.sessionClock}>{formatClock(elapsedSeconds)}</Text>
+    <View style={styles.sessionCard}>
+      <View style={styles.sessionTop}>
+        <View>
+          <Text style={styles.sectionLabel}>
+            {sessionStatus === 'paused' ? 'Paused' : 'In progress'}
+          </Text>
+          <Text style={styles.bigClock}>{formatClock(elapsedSeconds)}</Text>
+        </View>
+        <View style={styles.sessionActions}>
+          {sessionStatus === 'active' ? (
+            <Pressable disabled={busy} onPress={onPause} style={styles.ghostBtn}>
+              <Ionicons color={p.text} name="pause" size={14} />
+              <Text style={styles.ghostBtnText}>Pause</Text>
+            </Pressable>
+          ) : (
+            <Pressable
+              disabled={busy}
+              onPress={onResume}
+              style={styles.primaryBtnCompact}
+            >
+              <Ionicons color={p.onLime} name="play" size={14} />
+              <Text style={styles.primaryBtnText}>Resume</Text>
+            </Pressable>
+          )}
+          <Pressable disabled={busy} onPress={onFinish} style={styles.finishBtn}>
+            <Ionicons color={p.onLime} name="checkmark" size={14} />
+            <Text style={styles.primaryBtnText}>Finish</Text>
+          </Pressable>
+        </View>
       </View>
-      <View style={styles.sessionActions}>
-        {sessionStatus === 'active' ? (
-          <Pressable disabled={busy} onPress={onPause} style={styles.secondaryBtn}>
-            <Text style={styles.secondaryBtnText}>Pause</Text>
-          </Pressable>
-        ) : (
-          <Pressable
-            disabled={busy}
-            onPress={onResume}
-            style={styles.primaryBtnCompact}
-          >
-            <Text style={styles.primaryBtnText}>Resume</Text>
-          </Pressable>
-        )}
-        <Pressable disabled={busy} onPress={onFinish} style={styles.secondaryBtn}>
-          <Text style={styles.secondaryBtnText}>Finish</Text>
+      <View style={styles.sessionMetrics}>
+        <View style={styles.metricBlock}>
+          <View style={styles.metricIcon}>
+            <Ionicons color={p.lime} name="speedometer-outline" size={16} />
+          </View>
+          <View>
+            <Text style={styles.metricLabel}>Pace & volume</Text>
+            <Text style={styles.metricValue}>
+              {Math.round(volumeKg)} kg total
+            </Text>
+          </View>
+        </View>
+        <View style={styles.metricBlock}>
+          <View style={styles.metricIcon}>
+            <Ionicons color={p.hydrate} name="hourglass-outline" size={16} />
+          </View>
+          <View>
+            <Text style={styles.metricLabel}>Rest target</Text>
+            <Text style={styles.metricValue}>{restTarget}s auto</Text>
+          </View>
+        </View>
+      </View>
+      <View style={styles.sessionMetrics}>
+        <View style={styles.metricBlock}>
+          <View style={styles.metricIcon}>
+            <Ionicons color={p.limeSoft} name="checkmark-circle-outline" size={16} />
+          </View>
+          <View>
+            <Text style={styles.metricLabel}>Sets logged</Text>
+            <Text style={styles.metricValue}>
+              {setsCompleted}/{setsPlanned || '—'}
+            </Text>
+          </View>
+        </View>
+        <View style={styles.metricBlock}>
+          <View style={styles.metricIcon}>
+            <Ionicons color={p.active} name="pie-chart-outline" size={16} />
+          </View>
+          <View>
+            <Text style={styles.metricLabel}>Completion</Text>
+            <Text style={styles.metricValue}>{completionPercent}%</Text>
+          </View>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+function StepperField({
+  label,
+  value,
+  onChange,
+  step,
+  min,
+  disabled,
+}: {
+  label: string;
+  value: number;
+  onChange: (next: number) => void;
+  step: number;
+  min: number;
+  disabled?: boolean;
+}) {
+  const p = useFitnessPalette();
+  const styles = useFitnessStyles(buildStyles);
+  return (
+    <View style={styles.stepperField}>
+      <Text style={styles.fieldLabel}>{label}</Text>
+      <View style={styles.stepper}>
+        <Pressable
+          disabled={disabled}
+          onPress={() => onChange(Math.max(min, value - step))}
+          style={styles.stepperBtn}
+        >
+          <Ionicons color={p.text} name="remove" size={18} />
+        </Pressable>
+        <Text style={styles.stepperValue}>{value}</Text>
+        <Pressable
+          disabled={disabled}
+          onPress={() => onChange(value + step)}
+          style={styles.stepperBtn}
+        >
+          <Ionicons color={p.text} name="add" size={18} />
         </Pressable>
       </View>
     </View>
   );
 }
 
-function ExerciseSessionCard({
+function SetStepper({
+  current,
+  total,
+}: {
+  current: number;
+  total: number;
+}) {
+  const styles = useFitnessStyles(buildStyles);
+  const count = Math.max(total, 1);
+  return (
+    <View style={styles.setTrack}>
+      {Array.from({ length: count }, (_, index) => {
+        const setNumber = index + 1;
+        const active = setNumber === current;
+        const done = setNumber < current;
+        return (
+          <View key={setNumber} style={styles.setNodeWrap}>
+            <View
+              style={[
+                styles.setNode,
+                active && styles.setNodeActive,
+                done && styles.setNodeDone,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.setNodeText,
+                  active && styles.setNodeTextOnLime,
+                  done && !active && styles.setNodeTextDone,
+                ]}
+              >
+                {setNumber}
+              </Text>
+            </View>
+            {setNumber < count ? <View style={styles.setLine} /> : null}
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
+function ActiveExerciseCard({
   exercise,
   index,
-  expanded,
-  isActive,
   disabled,
   busy,
-  onExpand,
+  showSwap,
   onLogSet,
   onComplete,
   onSkip,
+  onReplace,
+  onToggleSwap,
   onUpload,
 }: {
   exercise: WorkoutExercise;
   index: number;
-  expanded: boolean;
-  isActive: boolean;
   disabled: boolean;
   busy: boolean;
-  onExpand: () => void;
+  showSwap: boolean;
   onLogSet: (values: { reps: number; weight: number }) => void;
   onComplete: () => void;
   onSkip: () => void;
+  onReplace: (name: string) => void;
+  onToggleSwap: () => void;
   onUpload: (prepared: {
     uri: string;
     fileName: string;
     mimeType: string;
   }) => Promise<string>;
 }) {
+  const p = useFitnessPalette();
   const styles = useFitnessStyles(buildStyles);
-  const [reps, setReps] = useState(
-    String(exercise.targetReps ?? '10').replace(/[^0-9].*$/, '') || '10',
-  );
-  const [weight, setWeight] = useState(
-    exercise.targetWeightKg != null ? String(exercise.targetWeightKg) : '0',
-  );
   const setsDone = exercise.loggedSets.filter((set) => set.completed).length;
-  const done = exercise.completed || exercise.skipped;
+  const currentSet = Math.min(setsDone + 1, Math.max(exercise.targetSets, 1));
+  const [reps, setReps] = useState(parseTargetReps(exercise.targetReps));
+  const [weight, setWeight] = useState(
+    Math.max(0, Math.round(exercise.targetWeightKg ?? 0)),
+  );
+  const [swapName, setSwapName] = useState('');
+
+  useEffect(() => {
+    setReps(parseTargetReps(exercise.targetReps));
+    setWeight(Math.max(0, Math.round(exercise.targetWeightKg ?? 0)));
+  }, [exercise.id, exercise.targetReps, exercise.targetWeightKg]);
 
   return (
-    <View
-      style={[
-        styles.card,
-        isActive && styles.cardActive,
-        exercise.completed && styles.cardDone,
-        exercise.skipped && styles.cardSkipped,
-      ]}
-    >
-      <Pressable onPress={onExpand} style={styles.exerciseRow}>
+    <View style={styles.card}>
+      <View style={styles.exerciseRow}>
         <ImageUploadThumb
           fallbackIcon="barbell-outline"
-          size={64}
+          size={56}
           uri={exercise.imageUrl}
           onUpload={onUpload}
         />
         <View style={styles.exerciseCopy}>
-          <Text style={styles.mealType}>
-            Exercise {index + 1}
-            {isActive ? ' · Now' : ''}
-          </Text>
+          <Text style={styles.exerciseIndex}>Exercise {index + 1}</Text>
           <Text style={styles.cardTitle}>{exercise.name}</Text>
+          {exercise.muscleGroup ? (
+            <Text style={styles.muscleText}>{exercise.muscleGroup}</Text>
+          ) : null}
           <Text style={styles.muted}>
-            {setsDone}/{exercise.targetSets} sets
+            {setsDone}/{exercise.targetSets} sets logged
+            {exercise.difficulty ? ` · ${exercise.difficulty}` : ''}
+          </Text>
+        </View>
+      </View>
+
+      <SetStepper current={currentSet} total={exercise.targetSets} />
+
+      <View style={styles.macroRow}>
+        <StepperField
+          disabled={disabled || busy}
+          label="Reps"
+          min={1}
+          step={1}
+          value={reps}
+          onChange={setReps}
+        />
+        <StepperField
+          disabled={disabled || busy}
+          label="Weight (kg)"
+          min={0}
+          step={2.5}
+          value={weight}
+          onChange={setWeight}
+        />
+      </View>
+
+      <Pressable
+        disabled={disabled || busy}
+        onPress={() => onLogSet({ reps, weight })}
+        style={styles.primaryBtn}
+      >
+        <View style={styles.btnInner}>
+          <Ionicons color={p.onLime} name="add" size={16} />
+          <Text style={styles.primaryBtnText}>Log set {currentSet}</Text>
+        </View>
+      </Pressable>
+
+      <View style={styles.rowActions}>
+        <Pressable
+          disabled={disabled || busy}
+          onPress={onComplete}
+          style={[styles.mintBtn, { flex: 1 }]}
+        >
+          <Text style={styles.mintBtnText}>Complete</Text>
+        </Pressable>
+        <Pressable
+          disabled={disabled || busy}
+          onPress={onSkip}
+          style={[styles.ghostBtn, { flex: 1 }]}
+        >
+          <Text style={styles.ghostBtnText}>Skip</Text>
+        </Pressable>
+      </View>
+
+      <View style={styles.logRow}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.muted}>
+            Target {currentSet}:{' '}
+            {exercise.targetReps != null
+              ? `${exercise.targetReps} reps`
+              : `${reps} reps`}
+            {exercise.targetWeightKg != null
+              ? ` × ${exercise.targetWeightKg} kg`
+              : weight > 0
+                ? ` × ${weight} kg`
+                : ''}
+          </Text>
+        </View>
+        <View style={styles.pendingBadge}>
+          <Text style={styles.pendingBadgeText}>
+            {setsDone >= exercise.targetSets ? 'Ready' : 'Pending'}
+          </Text>
+        </View>
+      </View>
+
+      {exercise.loggedSets.length > 0 ? (
+        <Text style={styles.muted}>
+          Logged:{' '}
+          {exercise.loggedSets
+            .map(
+              (set) =>
+                `S${set.setNumber} ${set.reps ?? '—'}×${set.weightKg ?? 0}kg`,
+            )
+            .join(' · ')}
+        </Text>
+      ) : null}
+
+      <Pressable
+        disabled={disabled || busy}
+        onPress={onToggleSwap}
+        style={styles.swapToggle}
+      >
+        <Ionicons color={p.lime} name="swap-horizontal" size={14} />
+        <Text style={styles.swapToggleText}>
+          {showSwap ? 'Cancel swap' : 'Did something else'}
+        </Text>
+      </Pressable>
+
+      {showSwap ? (
+        <View style={styles.swapBox}>
+          <Text style={styles.fieldLabel}>What did you do instead?</Text>
+          <TextInput
+            editable={!disabled}
+            placeholder="e.g. Push-ups"
+            placeholderTextColor={p.textMuted}
+            style={styles.input}
+            value={swapName}
+            onChangeText={setSwapName}
+          />
+          <Pressable
+            disabled={disabled || busy || !swapName.trim()}
+            onPress={() => onReplace(swapName)}
+            style={styles.primaryBtn}
+          >
+            <Text style={styles.primaryBtnText}>Log replacement</Text>
+          </Pressable>
+        </View>
+      ) : null}
+
+      {disabled ? (
+        <Text style={styles.muted}>Resume the workout to keep logging.</Text>
+      ) : null}
+    </View>
+  );
+}
+
+function UpcomingExerciseCard({
+  exercise,
+  index,
+  disabled,
+  busy,
+  showSwap,
+  onSelect,
+  onReplace,
+  onToggleSwap,
+  onUpload,
+}: {
+  exercise: WorkoutExercise;
+  index: number;
+  disabled: boolean;
+  busy: boolean;
+  showSwap: boolean;
+  onSelect: () => void;
+  onReplace: (name: string) => void;
+  onToggleSwap: () => void;
+  onUpload: (prepared: {
+    uri: string;
+    fileName: string;
+    mimeType: string;
+  }) => Promise<string>;
+}) {
+  const p = useFitnessPalette();
+  const styles = useFitnessStyles(buildStyles);
+  const [swapName, setSwapName] = useState('');
+  const done = exercise.completed || exercise.skipped || exercise.replaced;
+
+  return (
+    <View style={[styles.card, done && styles.cardDone]}>
+      <Pressable disabled={done} onPress={onSelect} style={styles.exerciseRow}>
+        <ImageUploadThumb
+          fallbackIcon="barbell-outline"
+          size={48}
+          uri={exercise.imageUrl}
+          onUpload={onUpload}
+        />
+        <View style={styles.exerciseCopy}>
+          <Text style={styles.exerciseIndex}>Exercise {index + 1}</Text>
+          <Text style={styles.cardTitle}>{exercise.name}</Text>
+          {exercise.muscleGroup ? (
+            <Text style={styles.muscleText}>{exercise.muscleGroup}</Text>
+          ) : null}
+          <Text style={styles.muted}>
+            {exercise.targetSets} sets
             {exercise.targetReps != null ? ` · ${exercise.targetReps} reps` : ''}
             {exercise.restSeconds ? ` · ${exercise.restSeconds}s rest` : ''}
           </Text>
-          <Text style={styles.status}>
-            {exercise.completed
-              ? 'Completed'
+        </View>
+        <View
+          style={[
+            styles.pendingBadge,
+            exercise.completed || exercise.replaced
+              ? styles.doneBadge
               : exercise.skipped
-                ? 'Skipped'
-                : isActive
-                  ? 'In progress'
+                ? styles.skipBadge
+                : null,
+          ]}
+        >
+          <Text
+            style={[
+              styles.pendingBadgeText,
+              (exercise.completed || exercise.replaced) && styles.doneBadgeText,
+            ]}
+          >
+            {exercise.replaced
+              ? 'Swapped'
+              : exercise.completed
+                ? 'Done'
+                : exercise.skipped
+                  ? 'Skipped'
                   : 'Pending'}
           </Text>
         </View>
       </Pressable>
 
-      {expanded && !done ? (
-        <View style={styles.logger}>
-          <View style={styles.macroRow}>
-            <View style={styles.field}>
-              <Text style={styles.fieldLabel}>Reps</Text>
-              <TextInput
-                editable={!disabled}
-                keyboardType="number-pad"
-                style={styles.input}
-                value={reps}
-                onChangeText={setReps}
-              />
+      {!done ? (
+        <>
+          <View style={styles.smartSwap}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.smartSwapLabel}>Smart AI swap</Text>
+              <Text style={styles.muted}>
+                Did a different move? Log what you actually performed.
+              </Text>
             </View>
-            <View style={styles.field}>
-              <Text style={styles.fieldLabel}>Weight (kg)</Text>
-              <TextInput
-                editable={!disabled}
-                keyboardType="decimal-pad"
-                style={styles.input}
-                value={weight}
-                onChangeText={setWeight}
-              />
-            </View>
-          </View>
-          <Pressable
-            disabled={disabled || busy}
-            onPress={() =>
-              onLogSet({
-                reps: Number(reps) || 0,
-                weight: Number(weight) || 0,
-              })
-            }
-            style={styles.primaryBtn}
-          >
-            <Text style={styles.primaryBtnText}>
-              Log set {setsDone + 1}
-            </Text>
-          </Pressable>
-          <View style={styles.rowActions}>
             <Pressable
               disabled={disabled || busy}
-              onPress={onComplete}
-              style={[styles.primaryBtnCompact, { flex: 1 }]}
+              onPress={onToggleSwap}
+              style={styles.mintBtnCompact}
             >
-              <Text style={styles.primaryBtnText}>Complete</Text>
-            </Pressable>
-            <Pressable
-              disabled={disabled || busy}
-              onPress={onSkip}
-              style={[styles.secondaryBtn, { flex: 1 }]}
-            >
-              <Text style={styles.secondaryBtnText}>Skip</Text>
+              <Text style={styles.mintBtnText}>
+                {showSwap ? 'Close' : 'Swap'}
+              </Text>
             </Pressable>
           </View>
-          {exercise.loggedSets.length > 0 ? (
-            <Text style={styles.muted}>
-              Logged:{' '}
-              {exercise.loggedSets
-                .map(
-                  (set) =>
-                    `S${set.setNumber} ${set.reps ?? '—'}×${set.weightKg ?? 0}kg`,
-                )
-                .join(' · ')}
-            </Text>
+          {showSwap ? (
+            <View style={styles.swapBox}>
+              <TextInput
+                editable={!disabled}
+                placeholder="Replacement exercise name"
+                placeholderTextColor={p.textMuted}
+                style={styles.input}
+                value={swapName}
+                onChangeText={setSwapName}
+              />
+              <Pressable
+                disabled={disabled || busy || !swapName.trim()}
+                onPress={() => onReplace(swapName)}
+                style={styles.primaryBtn}
+              >
+                <Text style={styles.primaryBtnText}>Log replacement</Text>
+              </Pressable>
+            </View>
           ) : null}
-          {disabled ? (
-            <Text style={styles.muted}>Start or resume the workout to log.</Text>
-          ) : null}
-        </View>
+        </>
+      ) : exercise.replaced && exercise.replacementName ? (
+        <Text style={styles.muted}>
+          Did instead: {exercise.replacementName}
+        </Text>
       ) : null}
     </View>
   );
@@ -754,94 +1355,323 @@ function ExerciseSessionCard({
 function buildStyles(p: FitnessPalette) {
   return StyleSheet.create({
     shell: { backgroundColor: p.bg, paddingHorizontal: 0 },
-    content: { gap: 14, padding: 18, paddingBottom: 36 },
-    eyebrow: {
-      color: p.lime,
-      fontSize: 12,
+    content: { gap: 14, padding: 18, paddingBottom: 40 },
+    topMeta: { alignItems: 'center' },
+    activePill: {
+      alignItems: 'center',
+      flexDirection: 'row',
+      gap: 6,
+    },
+    activeDot: {
+      backgroundColor: p.lime,
+      borderRadius: 4,
+      height: 6,
+      width: 6,
+    },
+    activePillText: {
+      color: p.limeSoft,
+      fontSize: 11,
       fontWeight: '800',
-      letterSpacing: 1,
+      letterSpacing: 0.8,
       textTransform: 'uppercase',
     },
-    title: { color: p.text, fontSize: 28, fontWeight: '800' },
-    muted: { color: p.textSecondary, fontSize: 13, lineHeight: 18 },
-    card: {
-      backgroundColor: p.surface,
-      borderColor: p.border,
-      borderRadius: 18,
-      borderWidth: 1,
-      gap: 10,
-      padding: 16,
-    },
-    cardActive: { borderColor: p.lime, backgroundColor: p.limeDim },
-    cardDone: { borderColor: 'rgba(46, 230, 214, 0.35)' },
-    cardSkipped: { borderColor: 'rgba(245, 197, 24, 0.35)' },
-    nowCard: {
-      backgroundColor: p.limeDim,
-      borderColor: p.lime,
-      borderRadius: 18,
-      borderWidth: 1,
-      gap: 4,
-      padding: 16,
-    },
-    restCard: {
-      alignItems: 'center',
-      backgroundColor: p.limeDim,
-      borderColor: p.lime,
-      borderRadius: 18,
-      borderWidth: 1,
+    titleRow: {
+      alignItems: 'flex-start',
       flexDirection: 'row',
       justifyContent: 'space-between',
-      padding: 16,
+      gap: 12,
     },
-    restLabel: {
+    titleCopy: { flex: 1, gap: 4 },
+    eyebrow: {
+      color: p.limeSoft,
+      fontSize: 11,
+      fontWeight: '800',
+      letterSpacing: 0.7,
+      textTransform: 'uppercase',
+    },
+    title: { color: p.text, fontSize: 30, fontWeight: '800' },
+    liveBadge: {
+      backgroundColor: p.limeDim,
+      borderRadius: 999,
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+    },
+    liveBadgeText: {
       color: p.lime,
       fontSize: 11,
       fontWeight: '800',
       letterSpacing: 0.6,
       textTransform: 'uppercase',
     },
-    restClock: {
-      color: p.text,
-      fontSize: 28,
-      fontVariant: ['tabular-nums'],
-      fontWeight: '800',
+    statsRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 12,
     },
-    sessionBar: {
-      alignItems: 'center',
+    statItem: { alignItems: 'center', flexDirection: 'row', gap: 6 },
+    statBullet: {
+      backgroundColor: p.textMuted,
+      borderRadius: 3,
+      height: 5,
+      width: 5,
+    },
+    statText: { color: p.textSecondary, fontSize: 12, fontWeight: '600' },
+    statBurn: { color: p.active },
+    muted: { color: p.textSecondary, fontSize: 13, lineHeight: 18 },
+    card: {
       backgroundColor: p.surface,
       borderColor: p.border,
-      borderRadius: 18,
+      borderRadius: 20,
+      borderWidth: 1,
+      gap: 12,
+      padding: 16,
+    },
+    cardDone: { opacity: 0.85 },
+    sessionCard: {
+      backgroundColor: p.surface,
+      borderColor: p.border,
+      borderRadius: 20,
+      borderWidth: 1,
+      gap: 16,
+      padding: 16,
+    },
+    sessionTop: {
+      alignItems: 'center',
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      gap: 12,
+    },
+    sectionLabel: {
+      color: p.lime,
+      fontSize: 11,
+      fontWeight: '800',
+      letterSpacing: 0.7,
+      textTransform: 'uppercase',
+    },
+    bigClock: {
+      color: p.text,
+      fontSize: 34,
+      fontVariant: ['tabular-nums'],
+      fontWeight: '800',
+      marginTop: 2,
+    },
+    sessionActions: { flexDirection: 'row', gap: 8 },
+    sessionMetrics: {
+      borderTopColor: p.border,
+      borderTopWidth: 1,
+      flexDirection: 'row',
+      gap: 12,
+      paddingTop: 14,
+    },
+    metricBlock: {
+      alignItems: 'center',
+      flex: 1,
+      flexDirection: 'row',
+      gap: 10,
+    },
+    metricIcon: {
+      alignItems: 'center',
+      backgroundColor: p.surfaceElevated,
+      borderRadius: 12,
+      height: 36,
+      justifyContent: 'center',
+      width: 36,
+    },
+    metricLabel: {
+      color: p.textMuted,
+      fontSize: 11,
+      fontWeight: '700',
+    },
+    metricValue: {
+      color: p.text,
+      fontSize: 13,
+      fontWeight: '800',
+      marginTop: 2,
+    },
+    restCard: {
+      alignItems: 'center',
+      backgroundColor: p.limeDim,
+      borderColor: p.lime,
+      borderRadius: 20,
       borderWidth: 1,
       flexDirection: 'row',
       justifyContent: 'space-between',
       padding: 16,
     },
-    sessionClock: {
-      color: p.text,
-      fontSize: 24,
-      fontVariant: ['tabular-nums'],
-      fontWeight: '800',
+    nowBanner: {
+      alignItems: 'center',
+      backgroundColor: p.limeDim,
+      borderRadius: 14,
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      paddingHorizontal: 14,
+      paddingVertical: 10,
     },
-    sessionActions: { flexDirection: 'row', gap: 8 },
-    exerciseRow: { alignItems: 'center', flexDirection: 'row', gap: 12 },
-    exerciseCopy: { flex: 1, gap: 4 },
-    cardTitle: { color: p.text, fontSize: 16, fontWeight: '800' },
-    mealType: {
+    nowBannerLabel: {
       color: p.lime,
+      fontSize: 11,
+      fontWeight: '800',
+      letterSpacing: 0.8,
+      textTransform: 'uppercase',
+    },
+    tagPill: {
+      backgroundColor: p.surface,
+      borderRadius: 999,
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+    },
+    tagPillText: {
+      color: p.textSecondary,
+      fontSize: 11,
+      fontWeight: '700',
+    },
+    nowCopy: { gap: 4, marginTop: -4 },
+    nowTitle: { color: p.text, fontSize: 22, fontWeight: '800' },
+    exerciseRow: { alignItems: 'center', flexDirection: 'row', gap: 12 },
+    exerciseCopy: { flex: 1, gap: 2 },
+    exerciseIndex: {
+      color: p.limeSoft,
       fontSize: 11,
       fontWeight: '800',
       textTransform: 'uppercase',
     },
-    status: { color: p.textMuted, fontSize: 12, fontWeight: '600' },
-    logger: { gap: 10 },
-    macroRow: { flexDirection: 'row', gap: 8 },
-    field: { flex: 1, gap: 6 },
+    cardTitle: { color: p.text, fontSize: 16, fontWeight: '800' },
+    muscleText: {
+      color: p.textSecondary,
+      fontSize: 12,
+      fontWeight: '600',
+    },
+    setTrack: {
+      alignItems: 'center',
+      flexDirection: 'row',
+      paddingVertical: 4,
+    },
+    setNodeWrap: { alignItems: 'center', flexDirection: 'row' },
+    setNode: {
+      alignItems: 'center',
+      backgroundColor: p.surfaceElevated,
+      borderColor: p.border,
+      borderRadius: 999,
+      borderWidth: 1,
+      height: 28,
+      justifyContent: 'center',
+      width: 28,
+    },
+    setNodeActive: {
+      backgroundColor: p.lime,
+      borderColor: p.lime,
+    },
+    setNodeDone: {
+      backgroundColor: p.limeDim,
+      borderColor: p.limeSoft,
+    },
+    setNodeText: {
+      color: p.textSecondary,
+      fontSize: 12,
+      fontWeight: '800',
+    },
+    setNodeTextOnLime: { color: p.onLime },
+    setNodeTextDone: { color: p.lime },
+    setLine: {
+      backgroundColor: p.border,
+      height: 2,
+      marginHorizontal: 4,
+      width: 18,
+    },
+    macroRow: { flexDirection: 'row', gap: 10 },
+    stepperField: { flex: 1, gap: 8 },
     fieldLabel: {
       color: p.textMuted,
       fontSize: 11,
       fontWeight: '800',
       textTransform: 'uppercase',
     },
+    stepper: {
+      alignItems: 'center',
+      backgroundColor: p.surfaceElevated,
+      borderColor: p.border,
+      borderRadius: 14,
+      borderWidth: 1,
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      minHeight: 48,
+      paddingHorizontal: 6,
+    },
+    stepperBtn: {
+      alignItems: 'center',
+      height: 36,
+      justifyContent: 'center',
+      width: 36,
+    },
+    stepperValue: {
+      color: p.text,
+      fontSize: 18,
+      fontVariant: ['tabular-nums'],
+      fontWeight: '800',
+    },
+    rowActions: { flexDirection: 'row', gap: 8 },
+    logRow: {
+      alignItems: 'center',
+      backgroundColor: p.surfaceElevated,
+      borderRadius: 12,
+      flexDirection: 'row',
+      gap: 10,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+    },
+    pendingBadge: {
+      backgroundColor: p.surface,
+      borderColor: p.border,
+      borderRadius: 999,
+      borderWidth: 1,
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+    },
+    pendingBadgeText: {
+      color: p.textSecondary,
+      fontSize: 11,
+      fontWeight: '700',
+    },
+    doneBadge: {
+      backgroundColor: p.limeDim,
+      borderColor: p.limeSoft,
+    },
+    doneBadgeText: { color: p.lime },
+    skipBadge: {
+      backgroundColor: 'rgba(245, 197, 24, 0.16)',
+      borderColor: p.active,
+    },
+    upcomingHead: {
+      alignItems: 'baseline',
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      marginTop: 4,
+    },
+    upcomingTitle: { color: p.text, fontSize: 18, fontWeight: '800' },
+    upcomingCount: { color: p.textMuted, fontSize: 12, fontWeight: '700' },
+    smartSwap: {
+      alignItems: 'center',
+      backgroundColor: p.limeDim,
+      borderRadius: 14,
+      flexDirection: 'row',
+      gap: 10,
+      padding: 12,
+    },
+    smartSwapLabel: {
+      color: p.lime,
+      fontSize: 12,
+      fontWeight: '800',
+      marginBottom: 2,
+    },
+    swapToggle: {
+      alignItems: 'center',
+      flexDirection: 'row',
+      gap: 6,
+      justifyContent: 'center',
+      paddingVertical: 4,
+    },
+    swapToggleText: { color: p.lime, fontSize: 13, fontWeight: '800' },
+    swapBox: { gap: 8 },
     input: {
       backgroundColor: p.bg,
       borderColor: p.border,
@@ -852,32 +1682,69 @@ function buildStyles(p: FitnessPalette) {
       paddingHorizontal: 12,
       paddingVertical: 10,
     },
-    rowActions: { flexDirection: 'row', gap: 8 },
     primaryBtn: {
       alignItems: 'center',
       backgroundColor: p.lime,
       borderRadius: 14,
       justifyContent: 'center',
       minHeight: 48,
+      paddingHorizontal: 14,
     },
     primaryBtnCompact: {
       alignItems: 'center',
       backgroundColor: p.lime,
       borderRadius: 12,
+      flexDirection: 'row',
+      gap: 6,
       justifyContent: 'center',
       minHeight: 40,
-      paddingHorizontal: 14,
+      paddingHorizontal: 12,
+    },
+    finishBtn: {
+      alignItems: 'center',
+      backgroundColor: p.lime,
+      borderRadius: 12,
+      flexDirection: 'row',
+      gap: 6,
+      justifyContent: 'center',
+      minHeight: 40,
+      paddingHorizontal: 12,
+    },
+    btnInner: {
+      alignItems: 'center',
+      flexDirection: 'row',
+      gap: 8,
     },
     primaryBtnText: { color: p.onLime, fontSize: 14, fontWeight: '800' },
-    secondaryBtn: {
+    mintBtn: {
       alignItems: 'center',
+      backgroundColor: p.limeDim,
+      borderRadius: 12,
+      justifyContent: 'center',
+      minHeight: 44,
+      paddingHorizontal: 12,
+    },
+    mintBtnCompact: {
+      alignItems: 'center',
+      backgroundColor: p.surface,
+      borderRadius: 12,
+      justifyContent: 'center',
+      minHeight: 36,
+      paddingHorizontal: 14,
+    },
+    mintBtnText: { color: p.lime, fontSize: 13, fontWeight: '800' },
+    ghostBtn: {
+      alignItems: 'center',
+      backgroundColor: p.surfaceElevated,
       borderColor: p.border,
       borderRadius: 12,
       borderWidth: 1,
+      flexDirection: 'row',
+      gap: 6,
       justifyContent: 'center',
       minHeight: 40,
-      paddingHorizontal: 14,
+      paddingHorizontal: 12,
     },
-    secondaryBtnText: { color: p.text, fontSize: 13, fontWeight: '800' },
+    ghostBtnText: { color: p.text, fontSize: 13, fontWeight: '800' },
   });
 }

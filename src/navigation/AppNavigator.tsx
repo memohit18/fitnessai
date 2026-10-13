@@ -3,22 +3,30 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import { BottomTabBar, type MainTabRoute } from '../components/app/BottomTabBar';
 import { FitnessOnboardingGate } from '../components/fitness/FitnessOnboardingGate';
+import { AnalyticsScreen } from '../screens/app/AnalyticsScreen';
 import { FitnessSetupScreen } from '../screens/app/FitnessSetupScreen';
-import { HomeScreen } from '../screens/app/HomeScreen';
 import { MealsScreen } from '../screens/app/MealsScreen';
 import { ProfileScreen } from '../screens/app/ProfileScreen';
+import { TransformationScreen } from '../screens/app/TransformationScreen';
 import { WorkoutScreen } from '../screens/app/WorkoutScreen';
 import type { AppStackParamList, MainTabParamList } from './types';
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
 const Stack = createNativeStackNavigator<AppStackParamList>();
 
-const TAB_ROUTES: MainTabRoute[] = ['Home', 'Workout', 'Meals', 'Profile'];
+const TAB_ROUTES: MainTabRoute[] = [
+  'Analytics',
+  'Profile',
+  'Workout',
+  'Meals',
+  'Transformation',
+];
 
 function MainTabs() {
   return (
     <FitnessOnboardingGate>
       <Tab.Navigator
+        initialRouteName="Analytics"
         detachInactiveScreens={false}
         screenOptions={{
           headerShown: false,
@@ -29,7 +37,7 @@ function MainTabs() {
           const routeName = state.routes[state.index]?.name;
           const activeRoute = TAB_ROUTES.includes(routeName as MainTabRoute)
             ? (routeName as MainTabRoute)
-            : 'Home';
+            : 'Analytics';
 
           return (
             <BottomTabBar
@@ -42,10 +50,11 @@ function MainTabs() {
           );
         }}
       >
-        <Tab.Screen component={HomeScreen} name="Home" />
+        <Tab.Screen component={AnalyticsScreen} name="Analytics" />
+        <Tab.Screen component={ProfileScreen} name="Profile" />
         <Tab.Screen component={WorkoutScreen} name="Workout" />
         <Tab.Screen component={MealsScreen} name="Meals" />
-        <Tab.Screen component={ProfileScreen} name="Profile" />
+        <Tab.Screen component={TransformationScreen} name="Transformation" />
       </Tab.Navigator>
     </FitnessOnboardingGate>
   );

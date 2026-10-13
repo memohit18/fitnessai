@@ -1,250 +1,125 @@
-import { useCallback, useRef, useState } from 'react';
-import {
-  ActivityIndicator,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
+import { useMemo, useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 
-import { getProfile } from '../../api/profileApi';
 import { AppShell } from '../../components/app/AppShell';
-import { ProfileEditSheet } from '../../components/app/ProfileEditSheet';
+import { UserAccountDrawer } from '../../components/app/UserAccountDrawer';
 import { UserAvatar } from '../../components/app/UserAvatar';
 import { FitnessProfilePanel } from '../../components/fitness/FitnessProfilePanel';
-import { useTheme } from '../../contexts/ThemeContext';
-import { useAuth, useAppDispatch } from '../../hooks';
-import { userProfileUpdated } from '../../store/slices/authSlice';
-import { loadSession, saveSession } from '../../services/authSession';
+import type { FitnessPalette } from '../../constants/fitnessPalette';
+import { useFitnessPalette, useFitnessStyles } from '../../hooks/useFitnessPalette';
+import { useAuth } from '../../hooks';
 
 export function ProfileScreen() {
-  const { colors } = useTheme();
-  const dispatch = useAppDispatch();
-  const { user, signOut } = useAuth();
-  const [isLoggingOut, setIsLoggingOut] = useState(false);
-  const [editOpen, setEditOpen] = useState(false);
-  const editOpenRef = useRef(false);
-  editOpenRef.current = editOpen;
-  const [avatar, setAvatar] = useState<string | null>(user?.avatar ?? null);
-  const [displayName, setDisplayName] = useState(
-    user?.name?.trim() || 'User',
-  );
-  const [phone, setPhone] = useState<string | null>(null);
+  const p = useFitnessPalette();
+  const styles = useFitnessStyles(buildStyles);
+  const { user } = useAuth();
+  const [accountOpen, setAccountOpen] = useState(false);
 
-  const email = user?.email ?? '—';
-
-  useFocusEffect(
-    useCallback(() => {
-      let active = true;
-      void (async () => {
-        try {
-          const profile = await getProfile();
-          if (!active || editOpenRef.current) return;
-          const nextName = profile.name?.trim() || user?.name?.trim() || 'User';
-          const nextAvatar = profile.avatar ?? null;
-          setDisplayName(nextName);
-          setPhone(profile.phone);
-          setAvatar(nextAvatar);
-          dispatch(
-            userProfileUpdated({
-              name: nextName,
-              avatar: nextAvatar,
-            }),
-          );
-          const session = await loadSession();
-          if (session) {
-            await saveSession({
-              ...session,
-              user: {
-                ...session.user,
-                name: nextName,
-                avatar: nextAvatar,
-              },
-            });
-          }
-        } catch {
-          // Keep local session values if profile fetch fails.
-        }
-      })();
-      return () => {
-        active = false;
-      };
-    }, [dispatch, user?.name]),
-  );
-
-  const onLogout = async () => {
-    setIsLoggingOut(true);
-    try {
-      await signOut();
-    } finally {
-      setIsLoggingOut(false);
-    }
-  };
+  const firstName = useMemo(() => {
+    const name = user?.name?.trim();
+    if (name) return name.split(/\s+/)[0] || name;
+    const email = user?.email?.trim();
+    if (email?.includes('@')) return email.split('@')[0] || 'there';
+    return email || 'there';
+  }, [user?.email, user?.name]);
 
   return (
-    <AppShell contentStyle={styles.shellContent} title="Profile">
+    <AppShell backgroundColor={p.bg} contentStyle={styles.shell} hideHeader>
       <ScrollView
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        <View
-          style={[
-            styles.card,
-            styles.profileCard,
-            { backgroundColor: colors.surface, borderColor: colors.border },
-          ]}
-        >
-          <UserAvatar avatar={avatar} email={email} size={80} />
-          <Text style={[styles.name, { color: colors.text }]} numberOfLines={1}>
-            {displayName}
-          </Text>
-          <Text style={[styles.email, { color: colors.textSecondary }]} numberOfLines={1}>
-            {email}
-          </Text>
+        <View style={styles.topRow}>
           <Pressable
-            onPress={() => setEditOpen(true)}
-            style={[styles.editBtn, { borderColor: colors.border }]}
+            accessibilityRole="button"
+            onPress={() => setAccountOpen(true)}
+            style={styles.identity}
           >
-            <Text style={[styles.editText, { color: colors.text }]}>Edit profile</Text>
+            <UserAvatar avatar={user?.avatar} email={user?.email} size={48} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.hello} numberOfLines={1}>
+                Hello {firstName}
+              </Text>
+              <Text style={styles.subtitle}>Fitness profile</Text>
+            </View>
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => setAccountOpen(true)}
+            style={styles.iconBtn}
+          >
+            <Ionicons color={p.text} name="person-outline" size={18} />
           </Pressable>
         </View>
 
-        <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>Account</Text>
-          <DetailRow label="Name" value={displayName} colors={colors} />
-          <DetailRow label="Phone" value={phone?.trim() || '—'} colors={colors} />
-          <DetailRow label="Email" value={email} colors={colors} />
-        </View>
+        <Text style={styles.eyebrow}>Profile</Text>
+        <Text style={styles.title}>Your fitness profile</Text>
+        <Text style={styles.muted}>
+          Goals, metrics, and setup synced with FitForge.
+        </Text>
 
         <FitnessProfilePanel />
-
-        <Pressable
-          accessibilityRole="button"
-          disabled={isLoggingOut}
-          onPress={() => void onLogout()}
-          style={({ pressed }) => [
-            styles.logoutButton,
-            {
-              backgroundColor: colors.surface,
-              borderColor: colors.border,
-              opacity: isLoggingOut ? 0.6 : pressed ? 0.85 : 1,
-            },
-          ]}
-        >
-          {isLoggingOut ? (
-            <ActivityIndicator color={colors.error} />
-          ) : (
-            <Text style={[styles.logoutText, { color: colors.error }]}>Log out</Text>
-          )}
-        </Pressable>
       </ScrollView>
 
-      <ProfileEditSheet
-        email={email === '—' ? '' : email}
-        initialAvatar={avatar}
-        initialName={displayName === 'User' ? '' : displayName}
-        initialPhone={phone}
-        visible={editOpen}
-        onClose={() => setEditOpen(false)}
-        onSaved={({ name, phone: nextPhone, avatar: nextAvatar }) => {
-          setDisplayName(name.trim() || 'User');
-          setPhone(nextPhone);
-          setAvatar(nextAvatar);
-        }}
+      <UserAccountDrawer
+        visible={accountOpen}
+        onClose={() => setAccountOpen(false)}
       />
     </AppShell>
   );
 }
 
-function DetailRow({
-  label,
-  value,
-  colors,
-}: {
-  label: string;
-  value: string;
-  colors: { text: string; textSecondary: string; border: string };
-}) {
-  return (
-    <View style={[styles.detailRow, { borderBottomColor: colors.border }]}>
-      <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>{label}</Text>
-      <Text style={[styles.detailValue, { color: colors.text }]} numberOfLines={2}>
-        {value}
-      </Text>
-    </View>
-  );
+function buildStyles(p: FitnessPalette) {
+  return StyleSheet.create({
+    shell: { backgroundColor: p.bg, paddingHorizontal: 0 },
+    content: {
+      gap: 14,
+      paddingBottom: 36,
+      paddingHorizontal: 18,
+      paddingTop: 2,
+    },
+    topRow: {
+      alignItems: 'center',
+      flexDirection: 'row',
+      gap: 12,
+      justifyContent: 'space-between',
+      minHeight: 48,
+    },
+    identity: {
+      alignItems: 'center',
+      flex: 1,
+      flexDirection: 'row',
+      gap: 12,
+    },
+    hello: {
+      color: p.text,
+      fontSize: 18,
+      fontWeight: '800',
+    },
+    subtitle: {
+      color: p.limeSoft,
+      fontSize: 13,
+      fontWeight: '600',
+    },
+    iconBtn: {
+      alignItems: 'center',
+      backgroundColor: p.surface,
+      borderColor: p.border,
+      borderRadius: 999,
+      borderWidth: 1,
+      height: 40,
+      justifyContent: 'center',
+      width: 40,
+    },
+    eyebrow: {
+      color: p.lime,
+      fontSize: 11,
+      fontWeight: '800',
+      letterSpacing: 0.8,
+      textTransform: 'uppercase',
+    },
+    title: { color: p.text, fontSize: 28, fontWeight: '800' },
+    muted: { color: p.textSecondary, fontSize: 13, lineHeight: 18 },
+  });
 }
-
-const styles = StyleSheet.create({
-  shellContent: {
-    paddingHorizontal: 0,
-  },
-  content: {
-    gap: 16,
-    paddingBottom: 28,
-    paddingHorizontal: 20,
-    paddingTop: 8,
-  },
-  card: {
-    borderRadius: 20,
-    borderWidth: 1,
-    gap: 8,
-    paddingHorizontal: 18,
-    paddingVertical: 22,
-  },
-  profileCard: {
-    alignItems: 'center',
-  },
-  name: {
-    fontSize: 22,
-    fontWeight: '700',
-    marginTop: 8,
-  },
-  email: {
-    fontSize: 14,
-  },
-  editBtn: {
-    borderRadius: 12,
-    borderWidth: 1,
-    marginTop: 10,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-  },
-  editText: {
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  sectionLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-    letterSpacing: 0.6,
-    marginBottom: 4,
-    textTransform: 'uppercase',
-  },
-  detailRow: {
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    gap: 4,
-    paddingVertical: 12,
-  },
-  detailLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  detailValue: {
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  logoutButton: {
-    alignItems: 'center',
-    borderRadius: 16,
-    borderWidth: 1,
-    justifyContent: 'center',
-    minHeight: 52,
-  },
-  logoutText: {
-    fontSize: 16,
-    fontWeight: '700',
-  },
-});

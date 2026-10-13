@@ -105,17 +105,27 @@ export async function startWorkoutSession(
   }
 }
 
-export async function pauseWorkoutSession(sessionId: string): Promise<void> {
+export async function pauseWorkoutSession(
+  sessionId: string,
+): Promise<WorkoutSession | null> {
   try {
-    await baseApi.post('/workouts/session/pause', { sessionId });
+    const { data } = await baseApi.post<unknown>('/workouts/session/pause', {
+      sessionId,
+    });
+    return unwrapWorkoutSession(data);
   } catch (error) {
     throw new Error(getApiErrorMessage(error, 'Unable to pause workout.'));
   }
 }
 
-export async function resumeWorkoutSession(sessionId: string): Promise<void> {
+export async function resumeWorkoutSession(
+  sessionId: string,
+): Promise<WorkoutSession | null> {
   try {
-    await baseApi.post('/workouts/session/resume', { sessionId });
+    const { data } = await baseApi.post<unknown>('/workouts/session/resume', {
+      sessionId,
+    });
+    return unwrapWorkoutSession(data);
   } catch (error) {
     throw new Error(getApiErrorMessage(error, 'Unable to resume workout.'));
   }
@@ -171,6 +181,29 @@ export async function completeWorkoutExercise(input: {
     });
   } catch (error) {
     throw new Error(getApiErrorMessage(error, 'Unable to complete exercise.'));
+  }
+}
+
+export async function replaceWorkoutExercise(input: {
+  exerciseId: string;
+  sessionId?: string;
+  replacementName: string;
+  sets?: number;
+  reps?: string;
+  weightKg?: number;
+  notes?: string;
+}): Promise<void> {
+  try {
+    await baseApi.post(`/workouts/exercises/${input.exerciseId}/replace`, {
+      replacementName: input.replacementName,
+      ...(input.sessionId ? { sessionId: input.sessionId } : {}),
+      ...(input.sets != null ? { sets: input.sets } : {}),
+      ...(input.reps ? { reps: input.reps } : {}),
+      ...(input.weightKg != null ? { weightKg: input.weightKg } : {}),
+      ...(input.notes ? { notes: input.notes } : {}),
+    });
+  } catch (error) {
+    throw new Error(getApiErrorMessage(error, 'Unable to replace exercise.'));
   }
 }
 

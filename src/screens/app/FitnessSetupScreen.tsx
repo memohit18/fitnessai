@@ -10,12 +10,16 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+
+import { useImmersiveTopPad } from '../../hooks/useImmersiveTopPad';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import Toast from 'react-native-toast-message';
 
 import { getFitnessGoals, getFitnessProfile, saveFitnessProfile } from '../../api/fitnessApi';
+import { generateMealPlan } from '../../api/mealApi';
+import { generateWorkoutPlan } from '../../api/workoutApi';
 import type { FitnessPalette } from '../../constants/fitnessPalette';
 import { useFitnessPalette, useFitnessStyles } from '../../hooks/useFitnessPalette';
 import {
@@ -27,6 +31,7 @@ import {
   FITNESS_ONBOARDING_BENEFITS,
   FITNESS_SETUP_STEPS,
   GENDER_OPTIONS,
+  HOME_EQUIPMENT_OPTIONS,
   WORKOUT_DAYS_OPTIONS,
   WORKOUT_MODE_OPTIONS,
 } from '../../lib/fitness/constants';
@@ -42,6 +47,7 @@ import type {
   FitnessProfile,
   FitnessSetupFormValues,
   FitnessSetupStepId,
+  HomeEquipment,
   PhysiqueGoal,
 } from '../../types/fitness';
 import { getApiErrorMessage } from '../../utils/api';
@@ -52,6 +58,7 @@ type SetupRoute = RouteProp<AppStackParamList, 'FitnessSetup'>;
 export function FitnessSetupScreen() {
   const p = useFitnessPalette();
   const styles = useFitnessStyles(buildStyles);
+  const topPad = useImmersiveTopPad();
   const navigation = useNavigation<Nav>();
   const route = useRoute<SetupRoute>();
   const isEditMode = route.params?.mode === 'edit';
@@ -78,7 +85,7 @@ export function FitnessSetupScreen() {
       if (hasCompletedFitnessOnboarding(profile) && !isEditMode) {
         navigation.reset({
           index: 0,
-          routes: [{ name: 'MainTabs', params: { screen: 'Home' } }],
+          routes: [{ name: 'MainTabs', params: { screen: 'Analytics' } }],
         });
         return;
       }
@@ -98,6 +105,7 @@ export function FitnessSetupScreen() {
           workoutExperience: profile.workoutExperience ?? '',
           workoutDaysPerWeek: profile.workoutDaysPerWeek ?? '',
           workoutMode: profile.workoutMode ?? '',
+          equipmentAvailable: profile.equipmentAvailable ?? [],
           targetWeightKg: profile.targetWeightKg ?? '',
           targetBodyFatPercent: profile.targetBodyFatPercent ?? '',
           allergies: profile.allergies ?? '',
@@ -136,10 +144,19 @@ export function FitnessSetupScreen() {
       setSubmitting(true);
       try {
         await saveFitnessProfile(toFitnessProfilePayload(values), existingId);
+        if (isEditMode) {
+          // Regenerate plans so workout mode / equipment take effect.
+          await Promise.allSettled([
+            generateWorkoutPlan(),
+            generateMealPlan(),
+          ]);
+        }
         Toast.show({
           type: 'success',
           text1: 'Fitness profile saved',
-          text2: 'Your FitForge plan is ready.',
+          text2: isEditMode
+            ? 'Plans refreshed for your workout setup.'
+            : 'Your FitForge plan is ready.',
           position: 'bottom',
         });
         navigation.reset({
@@ -147,7 +164,7 @@ export function FitnessSetupScreen() {
           routes: [
             {
               name: 'MainTabs',
-              params: { screen: isEditMode ? 'Profile' : 'Home' },
+              params: { screen: isEditMode ? 'Profile' : 'Analytics' },
             },
           ],
         });
@@ -204,7 +221,10 @@ export function FitnessSetupScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.root} edges={['top', 'left', 'right', 'bottom']}>
+    <SafeAreaView
+      style={[styles.root, { paddingTop: topPad }]}
+      edges={['left', 'right', 'bottom']}
+    >
       <View style={styles.progressRow}>
         {FITNESS_SETUP_STEPS.map((item, index) => (
           <View
@@ -442,7 +462,12 @@ function DietStep({
           return (
             <Pressable
               key={option.value}
-              onPress={() => onChange('workoutMode', option.value)}
+              onPress={() => {
+                onChange('workoutMode', option.value);
+                if (option.value === 'gym') {
+                  onChange('equipmentAvailable', []);
+                }
+              }}
               style={[styles.chip, active && styles.chipActive]}
             >
               <Text style={[styles.chipText, active && styles.chipTextActive]}>
@@ -452,6 +477,42 @@ function DietStep({
           );
         })}
       </View>
+      {values.workoutMode === 'home' || values.workoutMode === 'calisthenics' ? (
+        <>
+          <Text style={styles.fieldLabel}>
+            Home equipment (optional)
+          </Text>
+          <Text style={styles.muted}>
+            Select what you already have so plans stay accurate. Leave empty for
+            bodyweight-only.
+          </Text>
+          <View style={styles.chipWrap}>
+            {HOME_EQUIPMENT_OPTIONS.map((option) => {
+              const active = values.equipmentAvailable.includes(option.value);
+              return (
+                <Pressable
+                  key={option.value}
+                  onPress={() => {
+                    const next: HomeEquipment[] = active
+                      ? values.equipmentAvailable.filter(
+                          (item) => item !== option.value,
+                        )
+                      : [...values.equipmentAvailable, option.value];
+                    onChange('equipmentAvailable', next);
+                  }}
+                  style={[styles.chip, active && styles.chipActive]}
+                >
+                  <Text
+                    style={[styles.chipText, active && styles.chipTextActive]}
+                  >
+                    {option.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </>
+      ) : null}
       <Text style={styles.fieldLabel}>Workout days / week</Text>
       <View style={styles.chipWrap}>
         {WORKOUT_DAYS_OPTIONS.map((days) => {

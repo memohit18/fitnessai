@@ -22,6 +22,7 @@ import { getDailyDashboard } from '../../api/dashboardApi';
 import { getHydrationToday, logHydration } from '../../api/hydrationApi';
 import { getProfile } from '../../api/profileApi';
 import { AppShell } from '../../components/app/AppShell';
+import { UserAccountDrawer } from '../../components/app/UserAccountDrawer';
 import { AchievementsCard } from '../../components/fitness/dashboard/AchievementsCard';
 import { ComplianceCard } from '../../components/fitness/dashboard/ComplianceCard';
 import { DashboardHeroCard } from '../../components/fitness/dashboard/DashboardHeroCard';
@@ -34,6 +35,7 @@ import { WorkoutProgressCard } from '../../components/fitness/dashboard/WorkoutP
 import { HomeTopBar } from '../../components/fitness/home/HomeTopBar';
 import type { FitnessPalette } from '../../constants/fitnessPalette';
 import { useFitnessPalette, useFitnessStyles } from '../../hooks/useFitnessPalette';
+import { useImmersiveTopPad } from '../../hooks/useImmersiveTopPad';
 import { useAuth, useAppDispatch } from '../../hooks';
 import { loadSession, saveSession } from '../../services/authSession';
 import { userProfileUpdated } from '../../store/slices/authSlice';
@@ -46,8 +48,8 @@ import type {
 } from '../../types/dashboard';
 import { getApiErrorMessage } from '../../utils/api';
 
-type HomeNavigation = CompositeNavigationProp<
-  BottomTabNavigationProp<MainTabParamList, 'Home'>,
+type AnalyticsNavigation = CompositeNavigationProp<
+  BottomTabNavigationProp<MainTabParamList, 'Analytics'>,
   NativeStackNavigationProp<AppStackParamList>
 >;
 
@@ -60,10 +62,11 @@ function soon(title: string, detail = 'Coming soon on mobile.') {
   });
 }
 
-export function HomeScreen() {
+export function AnalyticsScreen() {
   const p = useFitnessPalette();
   const styles = useFitnessStyles(buildStyles);
-  const navigation = useNavigation<HomeNavigation>();
+  const topPad = useImmersiveTopPad();
+  const navigation = useNavigation<AnalyticsNavigation>();
   const dispatch = useAppDispatch();
   const { user } = useAuth();
   const [dashboard, setDashboard] = useState<DailyDashboard | null>(null);
@@ -72,6 +75,7 @@ export function HomeScreen() {
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [loggingWater, setLoggingWater] = useState(false);
+  const [accountOpen, setAccountOpen] = useState(false);
   const hasLoadedRef = useRef(false);
 
   const firstName = useMemo(() => {
@@ -218,17 +222,26 @@ export function HomeScreen() {
       soon('Progress');
       return;
     }
+    if (key === 'transformation') {
+      navigation.navigate('Transformation');
+      return;
+    }
     soon('Transformation');
   };
 
   return (
-    <AppShell backgroundColor={p.bg} contentStyle={styles.shellContent} hideHeader>
-      <View style={styles.root}>
+    <AppShell
+      backgroundColor={p.bg}
+      contentStyle={[styles.shellContent, { marginTop: -topPad }]}
+      hideHeader
+    >
+      {/* Pull into AppShell top inset so the glow covers the safe-area band (no color seam). */}
+      <View style={[styles.root, { paddingTop: topPad }]}>
         <LinearGradient
           colors={['rgba(200,255,0,0.14)', 'rgba(7,20,15,0)']}
           end={{ x: 1, y: 1 }}
           start={{ x: 0, y: 0 }}
-          style={styles.glow}
+          style={[styles.glow, { height: 260 + topPad }]}
         />
 
         <ScrollView
@@ -246,7 +259,7 @@ export function HomeScreen() {
             avatar={user?.avatar}
             email={user?.email}
             firstName={firstName}
-            onAvatarPress={() => navigation.navigate('Profile')}
+            onAvatarPress={() => setAccountOpen(true)}
             onBellPress={() => soon('Notifications')}
             onStreakPress={() =>
               soon(
@@ -339,6 +352,10 @@ export function HomeScreen() {
           ) : null}
         </ScrollView>
       </View>
+      <UserAccountDrawer
+        visible={accountOpen}
+        onClose={() => setAccountOpen(false)}
+      />
     </AppShell>
   );
 }
@@ -354,7 +371,6 @@ function buildStyles(p: FitnessPalette) {
     flex: 1,
   },
   glow: {
-    height: 220,
     left: 0,
     position: 'absolute',
     right: 0,
@@ -364,7 +380,7 @@ function buildStyles(p: FitnessPalette) {
     gap: 14,
     paddingBottom: 36,
     paddingHorizontal: 18,
-    paddingTop: 8,
+    paddingTop: 2,
   },
   muted: {
     color: p.textSecondary,

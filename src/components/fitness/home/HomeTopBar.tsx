@@ -63,6 +63,7 @@ function buildStyles(p: FitnessPalette) {
     alignItems: 'center',
     flexDirection: 'row',
     justifyContent: 'space-between',
+    minHeight: 48,
   },
   identity: {
     alignItems: 'center',
@@ -73,7 +74,8 @@ function buildStyles(p: FitnessPalette) {
   },
   copy: {
     flex: 1,
-    gap: 2,
+    gap: 1,
+    justifyContent: 'center',
   },
   hello: {
     color: p.text,
@@ -82,7 +84,7 @@ function buildStyles(p: FitnessPalette) {
     letterSpacing: -0.3,
   },
   subtitle: {
-    color: p.textSecondary,
+    color: p.limeSoft,
     fontSize: 13,
     fontWeight: '600',
   },
@@ -92,19 +94,21 @@ function buildStyles(p: FitnessPalette) {
   },
   iconBtn: {
     alignItems: 'center',
-    backgroundColor: p.surfaceElevated,
+    backgroundColor: 'rgba(26, 42, 34, 0.92)',
+    borderColor: p.border,
     borderRadius: 999,
-    height: 42,
+    borderWidth: 1,
+    height: 40,
     justifyContent: 'center',
-    width: 42,
+    width: 40,
   },
   dot: {
     backgroundColor: p.dangerDot,
     borderRadius: 999,
     height: 8,
     position: 'absolute',
-    right: 10,
-    top: 10,
+    right: 9,
+    top: 9,
     width: 8,
   },
 });
