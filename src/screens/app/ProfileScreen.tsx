@@ -72,19 +72,20 @@ export function ProfileScreen() {
 
 function buildStyles(p: FitnessPalette) {
   return StyleSheet.create({
-    shell: { backgroundColor: p.bg, paddingHorizontal: 0 },
+    shell: { backgroundColor: p.bg, flex: 1, paddingHorizontal: 0 },
     content: {
       gap: 14,
-      paddingBottom: 36,
+      paddingBottom: 110,
       paddingHorizontal: 18,
-      paddingTop: 2,
+      paddingTop: 12,
     },
     topRow: {
       alignItems: 'center',
       flexDirection: 'row',
       gap: 12,
       justifyContent: 'space-between',
-      minHeight: 48,
+      minHeight: 52,
+      paddingTop: 4,
     },
     identity: {
       alignItems: 'center',

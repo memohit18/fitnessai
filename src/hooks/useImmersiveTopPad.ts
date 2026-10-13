@@ -8,7 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 export function useImmersiveTopPad() {
   const insets = useSafeAreaInsets();
   // Flat devices / many Androids: small breathing room under the edge.
-  if (insets.top <= 24) return Math.max(insets.top, 10);
-  // Notched / Dynamic Island: stay below the cutout (slight tuck vs full inset).
-  return Math.max(insets.top - 4, 44);
+  if (insets.top <= 24) return Math.max(insets.top, 12);
+  // Notched / Dynamic Island: full safe inset so avatars / headers aren't clipped.
+  return Math.max(insets.top, 54);
 }
