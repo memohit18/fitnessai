@@ -1,5 +1,4 @@
-import { fetch as expoFetch } from 'expo/fetch';
-import { File as ExpoFile } from 'expo-file-system';
+import { File as ExpoFile, UploadType } from 'expo-file-system';
 
 import { env } from '../constants';
 import {
@@ -25,6 +24,11 @@ type UploadImageInput = {
   idempotencyKey?: string;
 };
 
+type UploadHttpResult = {
+  status: number;
+  body: string;
+};
+
 function normalizeFileUri(uri: string) {
   if (uri.startsWith('file://')) return uri;
   if (uri.startsWith('/')) return `file://${uri}`;
@@ -32,11 +36,14 @@ function normalizeFileUri(uri: string) {
 }
 
 /**
- * Mirror desktop `imagesService.upload`: FormData with `type` + real file blob.
- * Expo SDK 56 fetch rejects RN `{ uri, name, type }` parts — read bytes via
- * expo-file-system and append a Blob (same shape as desktop `File`).
+ * Desktop sends FormData(type + File). On Expo SDK 56, RN FormData `{uri}` and
+ * `new Blob([ArrayBuffer])` both fail — use native multipart File.upload instead
+ * (same fields: `type` + `file`).
  */
-async function buildUploadForm(input: UploadImageInput): Promise<FormData> {
+async function postImage(
+  accessToken: string,
+  input: UploadImageInput,
+): Promise<UploadHttpResult> {
   const type = normalizeImageType(input.type);
   if (!isValidImageType(type)) {
     throw new Error(
@@ -45,38 +52,36 @@ async function buildUploadForm(input: UploadImageInput): Promise<FormData> {
   }
 
   const uri = normalizeFileUri(input.uri);
-  const source = new ExpoFile(uri);
-  if (!source.exists) {
+  const file = new ExpoFile(uri);
+  if (!file.exists) {
     throw new Error('Prepared image file was not found on disk.');
   }
 
-  const mimeType = input.mimeType ?? 'image/jpeg';
-  const fileName = input.fileName?.trim() || source.name || 'photo.jpg';
-  const buffer = await source.arrayBuffer();
-  const blob = new Blob([buffer], { type: mimeType });
-
-  const form = new FormData();
-  form.append('type', type);
-  // Third arg sets Content-Disposition filename (desktop File.name).
-  form.append('file', blob, fileName);
-  return form;
-}
-
-async function postImage(
-  accessToken: string,
-  input: UploadImageInput,
-): Promise<Response> {
   const idempotencyKey =
     input.idempotencyKey?.trim() || makeIdempotencyKey();
 
-  return expoFetch(`${env.apiUrl}/images`, {
-    method: 'POST',
+  const result = await file.upload(`${env.apiUrl}/images`, {
+    httpMethod: 'POST',
+    uploadType: UploadType.MULTIPART,
+    fieldName: 'file',
+    mimeType: input.mimeType ?? 'image/jpeg',
     headers: {
       Authorization: `Bearer ${accessToken}`,
       'Idempotency-Key': idempotencyKey,
     },
-    body: await buildUploadForm(input),
+    parameters: { type },
   });
+
+  return { status: result.status, body: result.body };
+}
+
+function parseJsonBody(body: string): unknown {
+  if (!body?.trim()) return null;
+  try {
+    return JSON.parse(body) as unknown;
+  } catch {
+    return null;
+  }
 }
 
 export async function uploadImage(input: UploadImageInput): Promise<{
@@ -99,8 +104,8 @@ export async function uploadImage(input: UploadImageInput): Promise<{
       }
     }
 
-    const json = (await response.json().catch(() => null)) as unknown;
-    if (!response.ok) {
+    const json = parseJsonBody(response.body);
+    if (response.status < 200 || response.status >= 300) {
       const message =
         json &&
         typeof json === 'object' &&
