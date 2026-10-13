@@ -13,7 +13,9 @@ import { getProfile } from '../../api/profileApi';
 import { ProfileEditSheet } from './ProfileEditSheet';
 import { SideDrawer } from './SideDrawer';
 import { UserAvatar } from './UserAvatar';
+import { ThemeToggle } from '../ui/ThemeToggle';
 import type { FitnessPalette } from '../../constants/fitnessPalette';
+import { useTheme } from '../../contexts/ThemeContext';
 import { useFitnessPalette, useFitnessStyles } from '../../hooks/useFitnessPalette';
 import { useAuth, useAppDispatch } from '../../hooks';
 import { userProfileUpdated } from '../../store/slices/authSlice';
@@ -27,6 +29,7 @@ type UserAccountDrawerProps = {
 export function UserAccountDrawer({ visible, onClose }: UserAccountDrawerProps) {
   const p = useFitnessPalette();
   const styles = useFitnessStyles(buildStyles);
+  const { mode } = useTheme();
   const dispatch = useAppDispatch();
   const { user, signOut } = useAuth();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
@@ -177,6 +180,19 @@ export function UserAccountDrawer({ visible, onClose }: UserAccountDrawerProps) 
             <DetailRow label="Email" value={email} />
           </View>
 
+          <View style={styles.card}>
+            <Text style={styles.sectionLabel}>Appearance</Text>
+            <View style={styles.themeRow}>
+              <View style={styles.themeCopy}>
+                <Text style={styles.themeTitle}>
+                  {mode === 'dark' ? 'Dark' : 'Light'} theme
+                </Text>
+                <Text style={styles.themeHint}>Applies across the app</Text>
+              </View>
+              <ThemeToggle />
+            </View>
+          </View>
+
           <Pressable
             accessibilityRole="button"
             disabled={isLoggingOut}
@@ -321,6 +337,26 @@ function buildStyles(p: FitnessPalette) {
       color: p.text,
       fontSize: 15,
       fontWeight: '600',
+    },
+    themeRow: {
+      alignItems: 'center',
+      flexDirection: 'row',
+      gap: 12,
+      justifyContent: 'space-between',
+      paddingVertical: 6,
+    },
+    themeCopy: {
+      flex: 1,
+      gap: 2,
+    },
+    themeTitle: {
+      color: p.text,
+      fontSize: 15,
+      fontWeight: '700',
+    },
+    themeHint: {
+      color: p.textSecondary,
+      fontSize: 12,
     },
     logoutButton: {
       alignItems: 'center',
