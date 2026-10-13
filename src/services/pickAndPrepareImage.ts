@@ -1,4 +1,7 @@
-const MAX_DIMENSION = 2000;
+import {
+  IMAGE_UPLOAD_MAX_DIMENSION,
+  IMAGE_UPLOAD_QUALITY,
+} from '../lib/images/imageResponse';
 
 export type PreparedImage = {
   uri: string;
@@ -56,10 +59,13 @@ export async function pickAndPrepareImage(): Promise<PreparedImage | null> {
   }
 
   const asset = result.assets[0];
-  const width = asset.width || MAX_DIMENSION;
-  const height = asset.height || MAX_DIMENSION;
+  const width = asset.width || IMAGE_UPLOAD_MAX_DIMENSION;
+  const height = asset.height || IMAGE_UPLOAD_MAX_DIMENSION;
   const longest = Math.max(width, height);
-  const scale = longest > MAX_DIMENSION ? MAX_DIMENSION / longest : 1;
+  const scale =
+    longest > IMAGE_UPLOAD_MAX_DIMENSION
+      ? IMAGE_UPLOAD_MAX_DIMENSION / longest
+      : 1;
   const fileName = asset.fileName?.replace(/\.\w+$/, '.jpg') || 'photo.jpg';
 
   try {
@@ -76,7 +82,7 @@ export async function pickAndPrepareImage(): Promise<PreparedImage | null> {
           ]
         : [],
       {
-        compress: 0.85,
+        compress: IMAGE_UPLOAD_QUALITY,
         format: ImageManipulator.SaveFormat.JPEG,
       },
     );

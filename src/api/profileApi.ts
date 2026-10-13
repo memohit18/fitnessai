@@ -53,14 +53,11 @@ export function normalizeUserProfile(response: unknown): UserProfile {
   };
 }
 
+/** Match thinktank_desktop `toProfilePatchBody`. */
 function toPatchBody(payload: UpdateProfilePayload) {
   const body: Record<string, unknown> = {};
   if (payload.name !== undefined) body.name = payload.name;
-  if (payload.avatar !== undefined) {
-    // Backend accepts either key; send both so older / alias routes still apply.
-    body.avatar = payload.avatar;
-    body.imageUrl = payload.avatar;
-  }
+  if (payload.avatar !== undefined) body.avatar = payload.avatar;
   if (payload.phone !== undefined) body.phone = payload.phone;
   if (payload.currentPassword) body.currentPassword = payload.currentPassword;
   if (payload.newPassword) body.newPassword = payload.newPassword;

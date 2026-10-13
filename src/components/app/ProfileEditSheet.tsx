@@ -115,11 +115,12 @@ export function ProfileEditSheet({
       uploadedAvatarRef.current = null;
       setUploading(true);
       setFormStatus('Uploading photo…');
+      // Same as desktop: POST /images → preferred URL → hold until PATCH /profile.
       const { url } = await uploadImage({
         uri: prepared.uri,
         fileName: prepared.fileName,
         mimeType: prepared.mimeType,
-        type: 'avatar',
+        type: 'profile',
       });
       uploadedAvatarRef.current = url;
       setAvatar(url);
@@ -166,14 +167,16 @@ export function ProfileEditSheet({
     setFormStatus('Saving…');
     setSaving(true);
     try {
-      let avatarUrl = uploadedAvatarRef.current ?? (photoDirty ? avatar : null);
+      // Desktop holds the uploaded URL on the form, then PATCH /profile with avatar.
+      let avatarUrl =
+        uploadedAvatarRef.current ?? avatar ?? initialAvatar ?? null;
 
       if (pendingPhoto) {
         const uploaded = await uploadImage({
           uri: pendingPhoto.uri,
           fileName: pendingPhoto.fileName,
           mimeType: pendingPhoto.mimeType,
-          type: 'avatar',
+          type: 'profile',
         });
         avatarUrl = uploaded.url;
         uploadedAvatarRef.current = uploaded.url;
@@ -195,9 +198,12 @@ export function ProfileEditSheet({
         newPassword?: string;
       } = {};
 
-      if (nameDirty) payload.name = trimmedName;
-      if (phoneDirty) payload.phone = trimmedPhone || null;
-      if (photoDirty) payload.avatar = avatarUrl;
+      // Match desktop: when any profile field changed, send name + phone + avatar.
+      if (profileDirty) {
+        payload.name = trimmedName;
+        payload.phone = trimmedPhone || null;
+        payload.avatar = avatarUrl;
+      }
       if (passwordDirty) {
         payload.currentPassword = currentPassword;
         payload.newPassword = newPassword;

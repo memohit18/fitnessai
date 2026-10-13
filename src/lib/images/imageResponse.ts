@@ -107,6 +107,24 @@ export function getPreferredImageUrl(image: UserImage): string | null {
   );
 }
 
+/** Keep in sync with thinktank_desktop `lib/images/imageResponse`. */
+export const IMAGE_UPLOAD_MAX_BYTES = 7 * 1024 * 1024;
+export const IMAGE_UPLOAD_MAX_DIMENSION = 2000;
+export const IMAGE_UPLOAD_QUALITY = 0.85;
+
+/** Letters, numbers, underscore, hyphen only — no spaces or special chars. */
+export function normalizeImageType(value: string) {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, '_')
+    .replace(/[^a-z0-9_-]/g, '');
+}
+
+export function isValidImageType(value: string) {
+  return /^[a-z0-9][a-z0-9_-]{0,31}$/.test(value);
+}
+
 export function makeIdempotencyKey() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }

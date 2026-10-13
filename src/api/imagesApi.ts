@@ -1,7 +1,12 @@
+import { fetch as expoFetch } from 'expo/fetch';
+import { File as ExpoFile } from 'expo-file-system';
+
 import { env } from '../constants';
 import {
   getPreferredImageUrl,
+  isValidImageType,
   makeIdempotencyKey,
+  normalizeImageType,
   unwrapUploadedUserImage,
   type UserImage,
 } from '../lib/images/imageResponse';
@@ -17,27 +22,60 @@ type UploadImageInput = {
   type: string;
   fileName?: string;
   mimeType?: string;
+  idempotencyKey?: string;
 };
+
+function normalizeFileUri(uri: string) {
+  if (uri.startsWith('file://')) return uri;
+  if (uri.startsWith('/')) return `file://${uri}`;
+  return uri;
+}
+
+/**
+ * Mirror desktop `imagesService.upload`: FormData with `type` + real file blob.
+ * Expo SDK 56 fetch rejects RN `{ uri, name, type }` parts — read bytes via
+ * expo-file-system and append a Blob (same shape as desktop `File`).
+ */
+async function buildUploadForm(input: UploadImageInput): Promise<FormData> {
+  const type = normalizeImageType(input.type);
+  if (!isValidImageType(type)) {
+    throw new Error(
+      'Type must be lowercase letters, numbers, _ or - (e.g. profile).',
+    );
+  }
+
+  const uri = normalizeFileUri(input.uri);
+  const source = new ExpoFile(uri);
+  if (!source.exists) {
+    throw new Error('Prepared image file was not found on disk.');
+  }
+
+  const mimeType = input.mimeType ?? 'image/jpeg';
+  const fileName = input.fileName?.trim() || source.name || 'photo.jpg';
+  const buffer = await source.arrayBuffer();
+  const blob = new Blob([buffer], { type: mimeType });
+
+  const form = new FormData();
+  form.append('type', type);
+  // Third arg sets Content-Disposition filename (desktop File.name).
+  form.append('file', blob, fileName);
+  return form;
+}
 
 async function postImage(
   accessToken: string,
   input: UploadImageInput,
 ): Promise<Response> {
-  const form = new FormData();
-  form.append('type', input.type);
-  form.append('file', {
-    uri: input.uri,
-    name: input.fileName ?? 'photo.jpg',
-    type: input.mimeType ?? 'image/jpeg',
-  } as unknown as Blob);
+  const idempotencyKey =
+    input.idempotencyKey?.trim() || makeIdempotencyKey();
 
-  return fetch(`${env.apiUrl}/images`, {
+  return expoFetch(`${env.apiUrl}/images`, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${accessToken}`,
-      'Idempotency-Key': makeIdempotencyKey(),
+      'Idempotency-Key': idempotencyKey,
     },
-    body: form,
+    body: await buildUploadForm(input),
   });
 }
 
