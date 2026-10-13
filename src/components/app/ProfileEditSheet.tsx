@@ -15,6 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
 
 import { UserAvatar } from './UserAvatar';
+import { ThemeToggle } from '../ui/ThemeToggle';
 import { updateProfile } from '../../api/profileApi';
 import { uploadImage } from '../../api/imagesApi';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -46,19 +47,24 @@ export function ProfileEditSheet({
   onClose,
   onSaved,
 }: ProfileEditSheetProps) {
-  const { colors } = useTheme();
+  const { colors, mode } = useTheme();
   const dispatch = useAppDispatch();
   const [name, setName] = useState(initialName);
   const [phone, setPhone] = useState(initialPhone ?? '');
   const [avatar, setAvatar] = useState<string | null>(initialAvatar ?? null);
   const [previewUri, setPreviewUri] = useState<string | null>(null);
   const [pendingPhoto, setPendingPhoto] = useState<PreparedImage | null>(null);
+  /** Remote URL from upload, kept until Save succeeds. */
+  const uploadedAvatarRef = useRef<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [photoChanged, setPhotoChanged] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [formStatus, setFormStatus] = useState<string | null>(null);
   const wasVisible = useRef(false);
 
   useEffect(() => {
@@ -68,10 +74,14 @@ export function ProfileEditSheet({
       setAvatar(initialAvatar ?? null);
       setPreviewUri(null);
       setPendingPhoto(null);
+      uploadedAvatarRef.current = null;
+      setPhotoChanged(false);
       setShowPassword(false);
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
+      setFormError(null);
+      setFormStatus(null);
     }
     wasVisible.current = visible;
   }, [visible, initialName, initialPhone, initialAvatar]);
@@ -83,12 +93,16 @@ export function ProfileEditSheet({
   const nameDirty = trimmedName !== initialName.trim();
   const phoneDirty = trimmedPhone !== (initialPhone ?? '').trim();
   const photoDirty =
-    previewUri != null || (avatar ?? null) !== (initialAvatar ?? null);
+    photoChanged ||
+    previewUri != null ||
+    (avatar ?? null) !== (initialAvatar ?? null);
   const profileDirty = nameDirty || phoneDirty || photoDirty;
-  const canSave = (profileDirty || passwordDirty) && !saving;
+  const canSave = (profileDirty || passwordDirty) && !saving && !uploading;
 
   const onPickAvatar = async () => {
     try {
+      setFormError(null);
+      setFormStatus(null);
       const prepared = await pickAndPrepareImage();
       if (!prepared) return;
 
@@ -97,78 +111,63 @@ export function ProfileEditSheet({
       });
       setPreviewUri(prepared.uri);
       setPendingPhoto(prepared);
+      setPhotoChanged(true);
+      uploadedAvatarRef.current = null;
       setUploading(true);
+      setFormStatus('Uploading photo…');
       const { url } = await uploadImage({
         uri: prepared.uri,
         fileName: prepared.fileName,
         mimeType: prepared.mimeType,
         type: 'avatar',
       });
+      uploadedAvatarRef.current = url;
       setAvatar(url);
       setPendingPhoto(null);
-      Toast.show({
-        type: 'success',
-        text1: 'Photo ready',
-        text2: 'Tap Save to keep this avatar.',
-        position: 'bottom',
-      });
+      setFormStatus('New photo ready. Tap Save to keep it.');
     } catch (error) {
-      Toast.show({
-        type: 'error',
-        text1: 'Upload failed',
-        text2: getApiErrorMessage(error, 'Unable to upload photo.'),
-        position: 'bottom',
-      });
+      const message = getApiErrorMessage(error, 'Unable to upload photo.');
+      setFormError(message);
+      setFormStatus(null);
     } finally {
       setUploading(false);
     }
   };
 
   const onSave = async () => {
-    if (!canSave) return;
+    if (saving || uploading) return;
+
+    if (!profileDirty && !passwordDirty) {
+      setFormError('Nothing to save yet.');
+      return;
+    }
 
     if (profileDirty && !trimmedName) {
-      Toast.show({
-        type: 'error',
-        text1: 'Name required',
-        text2: 'Enter your display name.',
-        position: 'bottom',
-      });
+      setFormError('Enter your display name.');
       return;
     }
 
     if (passwordDirty) {
       if (!currentPassword || !newPassword) {
-        Toast.show({
-          type: 'error',
-          text1: 'Password incomplete',
-          text2: 'Enter current and new password.',
-          position: 'bottom',
-        });
+        setFormError('Enter current and new password.');
         return;
       }
       if (newPassword.length < 8) {
-        Toast.show({
-          type: 'error',
-          text1: 'Password too short',
-          text2: 'Use at least 8 characters.',
-          position: 'bottom',
-        });
+        setFormError('Use at least 8 characters for the new password.');
         return;
       }
       if (newPassword !== confirmPassword) {
-        Toast.show({
-          type: 'error',
-          text1: 'Passwords do not match',
-          position: 'bottom',
-        });
+        setFormError('New password and confirmation must match.');
         return;
       }
     }
 
+    setFormError(null);
+    setFormStatus('Saving…');
     setSaving(true);
     try {
-      let avatarUrl = avatar;
+      let avatarUrl = uploadedAvatarRef.current ?? (photoDirty ? avatar : null);
+
       if (pendingPhoto) {
         const uploaded = await uploadImage({
           uri: pendingPhoto.uri,
@@ -177,8 +176,15 @@ export function ProfileEditSheet({
           type: 'avatar',
         });
         avatarUrl = uploaded.url;
+        uploadedAvatarRef.current = uploaded.url;
         setAvatar(uploaded.url);
         setPendingPhoto(null);
+      }
+
+      if (photoDirty && !avatarUrl) {
+        throw new Error(
+          'Photo upload did not finish. Try picking the photo again.',
+        );
       }
 
       const payload: {
@@ -197,10 +203,14 @@ export function ProfileEditSheet({
         payload.newPassword = newPassword;
       }
 
+      if (Object.keys(payload).length === 0) {
+        throw new Error('Nothing to update.');
+      }
+
       const updated = await updateProfile(payload);
       const nextName = updated.name || trimmedName;
       const nextPhone = updated.phone ?? (trimmedPhone || null);
-      const nextAvatar = updated.avatar ?? avatarUrl;
+      const nextAvatar = updated.avatar ?? avatarUrl ?? null;
 
       dispatch(
         userProfileUpdated({
@@ -221,7 +231,12 @@ export function ProfileEditSheet({
         });
       }
 
+      uploadedAvatarRef.current = null;
+      setPreviewUri(null);
+      setPhotoChanged(false);
       onSaved({ name: nextName, phone: nextPhone, avatar: nextAvatar });
+      onClose();
+      // Toast after close — root host is covered while this Modal is open.
       Toast.show({
         type: 'success',
         text1:
@@ -230,14 +245,10 @@ export function ProfileEditSheet({
             : 'Profile updated',
         position: 'bottom',
       });
-      onClose();
     } catch (error) {
-      Toast.show({
-        type: 'error',
-        text1: 'Update failed',
-        text2: getApiErrorMessage(error, 'Unable to update profile.'),
-        position: 'bottom',
-      });
+      const message = getApiErrorMessage(error, 'Unable to update profile.');
+      setFormError(message);
+      setFormStatus(null);
     } finally {
       setSaving(false);
     }
@@ -288,12 +299,18 @@ export function ProfileEditSheet({
               </View>
             </Pressable>
             <Text style={[styles.hint, { color: colors.textSecondary }]}>
-              {uploading
-                ? 'Uploading photo…'
-                : previewUri
-                  ? 'New photo ready. Tap Save to keep it.'
-                  : 'Tap photo to upload a new avatar'}
+              {formStatus
+                ? formStatus
+                : uploading
+                  ? 'Uploading photo…'
+                  : previewUri || photoChanged
+                    ? 'New photo ready. Tap Save to keep it.'
+                    : 'Tap photo to upload a new avatar'}
             </Text>
+
+            {formError ? (
+              <Text style={styles.formError}>{formError}</Text>
+            ) : null}
 
             <Text style={[styles.label, { color: colors.textSecondary }]}>Name</Text>
             <TextInput
@@ -310,15 +327,17 @@ export function ProfileEditSheet({
                 },
               ]}
               value={name}
-              onChangeText={setName}
+              onChangeText={(value) => {
+                setFormError(null);
+                setName(value);
+              }}
             />
 
             <Text style={[styles.label, { color: colors.textSecondary }]}>Phone</Text>
             <TextInput
-              autoComplete="tel"
               editable={!saving}
               keyboardType="phone-pad"
-              placeholder="Phone number"
+              placeholder="+91 …"
               placeholderTextColor={colors.textSecondary}
               style={[
                 styles.input,
@@ -328,13 +347,26 @@ export function ProfileEditSheet({
                   backgroundColor: colors.background,
                 },
               ]}
-              textContentType="telephoneNumber"
               value={phone}
-              onChangeText={setPhone}
+              onChangeText={(value) => {
+                setFormError(null);
+                setPhone(value);
+              }}
             />
 
+            <View style={styles.themeRow}>
+              <View style={styles.themeCopy}>
+                <Text style={[styles.section, { color: colors.text }]}>
+                  Appearance
+                </Text>
+                <Text style={[styles.themeHint, { color: colors.textSecondary }]}>
+                  {mode === 'dark' ? 'Dark' : 'Light'} theme · applies everywhere
+                </Text>
+              </View>
+              <ThemeToggle />
+            </View>
+
             <Pressable
-              disabled={saving}
               onPress={() => setShowPassword((open) => !open)}
               style={styles.passwordToggle}
             >
@@ -428,6 +460,7 @@ export function ProfileEditSheet({
               </Text>
             </Pressable>
             <Pressable
+              accessibilityRole="button"
               disabled={!canSave}
               onPress={() => void onSave()}
               style={[
@@ -506,6 +539,13 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     textAlign: 'center',
   },
+  formError: {
+    color: '#F07167',
+    fontSize: 13,
+    fontWeight: '600',
+    marginBottom: 4,
+    textAlign: 'center',
+  },
   label: {
     fontSize: 11,
     fontWeight: '700',
@@ -516,6 +556,20 @@ const styles = StyleSheet.create({
   section: {
     fontSize: 15,
     fontWeight: '800',
+  },
+  themeRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 18,
+    gap: 12,
+  },
+  themeCopy: {
+    flex: 1,
+    gap: 2,
+  },
+  themeHint: {
+    fontSize: 12,
   },
   passwordToggle: {
     alignItems: 'center',
