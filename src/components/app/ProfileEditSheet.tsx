@@ -246,6 +246,8 @@ export function ProfileEditSheet({
   return (
     <Modal
       animationType="slide"
+      presentationStyle="overFullScreen"
+      statusBarTranslucent
       transparent
       visible={visible}
       onRequestClose={onClose}
@@ -254,7 +256,11 @@ export function ProfileEditSheet({
         <View style={[styles.sheet, { backgroundColor: colors.surface }]}>
           <View style={styles.header}>
             <Text style={[styles.title, { color: colors.text }]}>Edit profile</Text>
-            <Pressable onPress={onClose} hitSlop={12}>
+            <Pressable
+              accessibilityRole="button"
+              hitSlop={12}
+              onPress={onClose}
+            >
               <Ionicons color={colors.textSecondary} name="close" size={22} />
             </Pressable>
           </View>

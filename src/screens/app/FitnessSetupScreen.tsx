@@ -9,6 +9,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useImmersiveTopPad } from '../../hooks/useImmersiveTopPad';
@@ -185,6 +186,13 @@ export function FitnessSetupScreen() {
     setStepIndex((index) => index - 1);
   };
 
+  const exitToProfile = () => {
+    navigation.reset({
+      index: 0,
+      routes: [{ name: 'MainTabs', params: { screen: 'Profile' } }],
+    });
+  };
+
   const reviewProfile = useMemo(() => {
     if (step !== 'review') return [];
     try {
@@ -225,6 +233,29 @@ export function FitnessSetupScreen() {
       style={[styles.root, { paddingTop: topPad }]}
       edges={['left', 'right', 'bottom']}
     >
+      {isEditMode ? (
+        <View style={styles.topBar}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Back to profile"
+            onPress={exitToProfile}
+            style={styles.topBarBtn}
+          >
+            <Ionicons color={p.text} name="chevron-back" size={22} />
+            <Text style={styles.topBarBtnText}>Profile</Text>
+          </Pressable>
+          <Text style={styles.topBarTitle}>Edit fitness profile</Text>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Close"
+            onPress={exitToProfile}
+            style={styles.topBarClose}
+          >
+            <Ionicons color={p.text} name="close" size={20} />
+          </Pressable>
+        </View>
+      ) : null}
+
       <View style={styles.progressRow}>
         {FITNESS_SETUP_STEPS.map((item, index) => (
           <View
@@ -305,6 +336,10 @@ export function FitnessSetupScreen() {
         {stepIndex > 0 ? (
           <Pressable onPress={goBack} style={styles.secondaryBtn}>
             <Text style={styles.secondaryBtnText}>Back</Text>
+          </Pressable>
+        ) : isEditMode ? (
+          <Pressable onPress={exitToProfile} style={styles.secondaryBtn}>
+            <Text style={styles.secondaryBtnText}>Profile</Text>
           </Pressable>
         ) : (
           <View style={styles.secondaryBtnPlaceholder} />
@@ -712,6 +747,43 @@ function buildStyles(p: FitnessPalette) {
     gap: 12,
     justifyContent: 'center',
     padding: 24,
+  },
+  topBar: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 8,
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
+    paddingBottom: 4,
+    paddingTop: 4,
+  },
+  topBarBtn: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 2,
+    minWidth: 72,
+  },
+  topBarBtnText: {
+    color: p.text,
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  topBarTitle: {
+    color: p.textSecondary,
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  topBarClose: {
+    alignItems: 'center',
+    backgroundColor: p.surface,
+    borderColor: p.border,
+    borderRadius: 999,
+    borderWidth: 1,
+    height: 36,
+    justifyContent: 'center',
+    width: 36,
   },
   progressRow: {
     flexDirection: 'row',

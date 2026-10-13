@@ -73,7 +73,10 @@ export function AppNavigator() {
       <Stack.Screen
         component={FitnessSetupScreen}
         name="FitnessSetup"
-        options={{ gestureEnabled: false }}
+        options={({ route }) => ({
+          // First-time onboarding must complete; edit mode can swipe/back out.
+          gestureEnabled: route.params?.mode === 'edit',
+        })}
       />
     </Stack.Navigator>
   );

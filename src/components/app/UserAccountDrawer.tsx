@@ -30,9 +30,12 @@ export function UserAccountDrawer({ visible, onClose }: UserAccountDrawerProps) 
   const dispatch = useAppDispatch();
   const { user, signOut } = useAuth();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
-  const [editOpen, setEditOpen] = useState(false);
+  /** Account drawer should hide while edit sheet is up (no nested Modals on iOS). */
+  const [editing, setEditing] = useState(false);
+  /** Edit sheet Modal visibility — delayed slightly after drawer closes. */
+  const [editSheetVisible, setEditSheetVisible] = useState(false);
   const editOpenRef = useRef(false);
-  editOpenRef.current = editOpen;
+  editOpenRef.current = editing || editSheetVisible;
   const [avatar, setAvatar] = useState<string | null>(user?.avatar ?? null);
   const [displayName, setDisplayName] = useState(user?.name?.trim() || 'User');
   const [phone, setPhone] = useState<string | null>(null);
@@ -71,30 +74,71 @@ export function UserAccountDrawer({ visible, onClose }: UserAccountDrawerProps) 
   }, [dispatch, user?.name]);
 
   useEffect(() => {
-    if (!visible) return;
+    if (!visible) {
+      setEditing(false);
+      setEditSheetVisible(false);
+      return;
+    }
     setAvatar(user?.avatar ?? null);
     setDisplayName(user?.name?.trim() || 'User');
     void loadProfile();
   }, [loadProfile, user?.avatar, user?.name, visible]);
 
+  useEffect(() => {
+    if (!editing) {
+      setEditSheetVisible(false);
+      return;
+    }
+    // Let the account drawer Modal dismiss before presenting the edit Modal.
+    const timer = setTimeout(() => setEditSheetVisible(true), 280);
+    return () => clearTimeout(timer);
+  }, [editing]);
+
   const onLogout = async () => {
     setIsLoggingOut(true);
     try {
       await signOut();
+      setEditing(false);
+      setEditSheetVisible(false);
       onClose();
     } finally {
       setIsLoggingOut(false);
     }
   };
 
+  const openEdit = () => {
+    setEditing(true);
+  };
+
+  const closeEdit = () => {
+    setEditSheetVisible(false);
+    setEditing(false);
+    void loadProfile();
+  };
+
+  // Keep the host mounted while editing so state survives; only one Modal is visible at a time.
+  const drawerVisible = visible && !editing;
+
   return (
     <>
-      <SideDrawer side="left" visible={visible} onClose={onClose}>
+      <SideDrawer
+        side="left"
+        visible={drawerVisible}
+        onClose={() => {
+          setEditing(false);
+          setEditSheetVisible(false);
+          onClose();
+        }}
+      >
         <View style={styles.header}>
           <Text style={styles.title}>Account</Text>
           <Pressable
             accessibilityRole="button"
-            onPress={onClose}
+            onPress={() => {
+              setEditing(false);
+              setEditSheetVisible(false);
+              onClose();
+            }}
             style={styles.closeBtn}
           >
             <Ionicons color={p.text} name="close" size={20} />
@@ -113,7 +157,15 @@ export function UserAccountDrawer({ visible, onClose }: UserAccountDrawerProps) 
             <Text style={styles.email} numberOfLines={1}>
               {email}
             </Text>
-            <Pressable onPress={() => setEditOpen(true)} style={styles.editBtn}>
+            <Pressable
+              accessibilityRole="button"
+              onPress={openEdit}
+              style={({ pressed }) => [
+                styles.editBtn,
+                { opacity: pressed ? 0.85 : 1 },
+              ]}
+            >
+              <Ionicons color={p.lime} name="create-outline" size={16} />
               <Text style={styles.editText}>Edit profile</Text>
             </Pressable>
           </View>
@@ -148,8 +200,8 @@ export function UserAccountDrawer({ visible, onClose }: UserAccountDrawerProps) 
         initialAvatar={avatar}
         initialName={displayName === 'User' ? '' : displayName}
         initialPhone={phone}
-        visible={editOpen}
-        onClose={() => setEditOpen(false)}
+        visible={editSheetVisible}
+        onClose={closeEdit}
         onSaved={({ name, phone: nextPhone, avatar: nextAvatar }) => {
           setDisplayName(name.trim() || 'User');
           setPhone(nextPhone);
@@ -222,12 +274,15 @@ function buildStyles(p: FitnessPalette) {
       fontSize: 13,
     },
     editBtn: {
+      alignItems: 'center',
       borderColor: p.border,
       borderRadius: 12,
       borderWidth: 1,
+      flexDirection: 'row',
+      gap: 8,
       marginTop: 10,
       paddingHorizontal: 14,
-      paddingVertical: 9,
+      paddingVertical: 10,
     },
     editText: {
       color: p.text,
