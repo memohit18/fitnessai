@@ -32,7 +32,8 @@ import { TodaysTasksCard } from '../../components/fitness/dashboard/TodaysTasksC
 import { WaterTrackerCard } from '../../components/fitness/dashboard/WaterTrackerCard';
 import { WorkoutProgressCard } from '../../components/fitness/dashboard/WorkoutProgressCard';
 import { HomeTopBar } from '../../components/fitness/home/HomeTopBar';
-import { fitnessPalette as p } from '../../constants/fitnessPalette';
+import type { FitnessPalette } from '../../constants/fitnessPalette';
+import { useFitnessPalette, useFitnessStyles } from '../../hooks/useFitnessPalette';
 import { useAuth, useAppDispatch } from '../../hooks';
 import { loadSession, saveSession } from '../../services/authSession';
 import { userProfileUpdated } from '../../store/slices/authSlice';
@@ -60,6 +61,8 @@ function soon(title: string, detail = 'Coming soon on mobile.') {
 }
 
 export function HomeScreen() {
+  const p = useFitnessPalette();
+  const styles = useFitnessStyles(buildStyles);
   const navigation = useNavigation<HomeNavigation>();
   const dispatch = useAppDispatch();
   const { user } = useAuth();
@@ -340,7 +343,8 @@ export function HomeScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+function buildStyles(p: FitnessPalette) {
+  return StyleSheet.create({
   shellContent: {
     backgroundColor: p.bg,
     paddingHorizontal: 0,
@@ -402,3 +406,5 @@ const styles = StyleSheet.create({
     padding: 24,
   },
 });
+}
+

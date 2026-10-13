@@ -137,6 +137,8 @@ export function unwrapFitnessProfile(response: unknown): FitnessProfile | null {
       'workoutDaysPerWeek',
       'workout_days_per_week',
     ]),
+    workoutMode: (readString(profile, ['workoutMode', 'workout_mode']) ||
+      'gym') as FitnessProfile['workoutMode'],
     targetWeightKg: readNullableNumber(profile, [
       'targetWeightKg',
       'target_weight_kg',

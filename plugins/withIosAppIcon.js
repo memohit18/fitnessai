@@ -1,7 +1,7 @@
 const { execFileSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
-const { withDangerousMod } = require('expo/config-plugins');
+const { withDangerousMod, withXcodeProject } = require('expo/config-plugins');
 
 const SIZES = [
   ['Icon-20@2x.png', 40],
@@ -65,7 +65,25 @@ const CONTENTS = {
  * iPhone 15 is a 3x device. A 1024-only icon set was installed without
  * AppIcon60x60@3x, so iOS showed the empty home-screen placeholder.
  */
+const COPY_SCRIPT =
+  'cp "${SRCROOT}/fitnessai/Images.xcassets/AppIcon.appiconset/Icon-60@3x.png" "${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/AppIcon60x60@3x.png"\n';
+
 function withIosAppIcon(config) {
+  config = withXcodeProject(config, (projectConfig) => {
+    const project = projectConfig.modResults;
+    const phases = project.hash.project.objects.PBXShellScriptBuildPhase ?? {};
+    const exists = Object.values(phases).some(
+      (phase) => phase && (phase.name === 'Copy 3x App Icon' || phase.name === '"Copy 3x App Icon"'),
+    );
+    if (!exists) {
+      project.addBuildPhase([], 'PBXShellScriptBuildPhase', 'Copy 3x App Icon', null, {
+        shellPath: '/bin/sh',
+        shellScript: COPY_SCRIPT,
+      });
+    }
+    return projectConfig;
+  });
+
   return withDangerousMod(config, [
     'ios',
     (cfg) => {

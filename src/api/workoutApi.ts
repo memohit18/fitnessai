@@ -8,15 +8,18 @@ import {
 import {
   unwrapActiveWorkoutToday,
   unwrapTodayWorkout,
+  unwrapWorkoutSession,
 } from '../lib/fitness/workoutResponse';
-import type { WorkoutDay } from '../types/fitness';
+import type { WorkoutDay, WorkoutSession } from '../types/fitness';
 import { getApiErrorMessage } from '../utils/api';
 
 function isAbsent(error: unknown) {
   if (!axios.isAxiosError(error)) return false;
   if (isMissingFitnessProfileStatus(error.response?.status)) return true;
   const message = getApiErrorMessage(error, '').toLowerCase();
-  return /not found|no active workout|no workout/.test(message);
+  return /not found|no active workout|no workout|no active session/.test(
+    message,
+  );
 }
 
 export async function getTodayWorkout(): Promise<WorkoutDay | null> {
@@ -41,6 +44,17 @@ export async function getTodayWorkout(): Promise<WorkoutDay | null> {
   } catch (error) {
     if (isAbsent(error)) return null;
     throw new Error(getApiErrorMessage(error, 'Unable to load workout.'));
+  }
+}
+
+export async function getActiveWorkoutSession(): Promise<WorkoutSession | null> {
+  try {
+    const { data } = await baseApi.get<unknown>('/workouts/session/active');
+    if (isFitnessErrorEnvelope(data)) return null;
+    return unwrapWorkoutSession(data);
+  } catch (error) {
+    if (isAbsent(error)) return null;
+    throw new Error(getApiErrorMessage(error, 'Unable to load session.'));
   }
 }
 
@@ -74,13 +88,89 @@ export async function generateWorkoutPlan(): Promise<void> {
   }
 }
 
-export async function startWorkoutSession(workoutPlanDayId?: string): Promise<void> {
+export async function startWorkoutSession(
+  workoutPlanDayId?: string,
+): Promise<WorkoutSession> {
   try {
-    await baseApi.post('/workouts/session/start', {
+    const { data } = await baseApi.post<unknown>('/workouts/session/start', {
       ...(workoutPlanDayId ? { workoutPlanDayId } : {}),
     });
+    const session = unwrapWorkoutSession(data);
+    if (!session) {
+      throw new Error('Unable to start workout session.');
+    }
+    return session;
   } catch (error) {
     throw new Error(getApiErrorMessage(error, 'Unable to start workout session.'));
+  }
+}
+
+export async function pauseWorkoutSession(sessionId: string): Promise<void> {
+  try {
+    await baseApi.post('/workouts/session/pause', { sessionId });
+  } catch (error) {
+    throw new Error(getApiErrorMessage(error, 'Unable to pause workout.'));
+  }
+}
+
+export async function resumeWorkoutSession(sessionId: string): Promise<void> {
+  try {
+    await baseApi.post('/workouts/session/resume', { sessionId });
+  } catch (error) {
+    throw new Error(getApiErrorMessage(error, 'Unable to resume workout.'));
+  }
+}
+
+export async function endWorkoutSession(
+  sessionId: string,
+  options?: { force?: boolean; caloriesBurned?: number },
+): Promise<void> {
+  try {
+    await baseApi.post('/workouts/session/end', {
+      sessionId,
+      ...(options?.force != null ? { force: options.force } : {}),
+      ...(options?.caloriesBurned != null
+        ? { caloriesBurned: options.caloriesBurned }
+        : {}),
+    });
+  } catch (error) {
+    throw new Error(getApiErrorMessage(error, 'Unable to finish workout.'));
+  }
+}
+
+export async function logWorkoutSet(input: {
+  exerciseId: string;
+  sessionId: string;
+  reps: number;
+  weight: number;
+  setNumber: number;
+  restSeconds?: number;
+}): Promise<void> {
+  try {
+    await baseApi.post(`/workouts/exercises/${input.exerciseId}/set`, {
+      sessionId: input.sessionId,
+      reps: input.reps,
+      weight: input.weight,
+      setNumber: input.setNumber,
+      ...(input.restSeconds != null ? { restSeconds: input.restSeconds } : {}),
+    });
+  } catch (error) {
+    throw new Error(getApiErrorMessage(error, 'Unable to log set.'));
+  }
+}
+
+export async function completeWorkoutExercise(input: {
+  exerciseId: string;
+  sessionId?: string;
+  skip?: boolean;
+}): Promise<void> {
+  try {
+    await baseApi.post(`/workouts/exercises/${input.exerciseId}/complete`, {
+      ...(input.sessionId ? { sessionId: input.sessionId } : {}),
+      ...(input.skip != null ? { skip: input.skip } : {}),
+    });
+  } catch (error) {
+    throw new Error(getApiErrorMessage(error, 'Unable to complete exercise.'));
   }
 }
 
@@ -102,10 +192,12 @@ export async function updateExerciseImage(
       await baseApi.patch(path, { imageUrl });
       return true;
     } catch (error) {
-      if (axios.isAxiosError(error) && [404, 405].includes(error.response?.status ?? 0)) {
+      if (
+        axios.isAxiosError(error) &&
+        [404, 405].includes(error.response?.status ?? 0)
+      ) {
         continue;
       }
-      // Non-missing errors still mean attach isn't usable for this build.
       if (axios.isAxiosError(error) && (error.response?.status ?? 0) >= 500) {
         throw new Error(
           getApiErrorMessage(error, 'Unable to save exercise image.'),

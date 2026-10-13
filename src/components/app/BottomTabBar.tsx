@@ -3,7 +3,8 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 
-import { fitnessPalette as p } from '../../constants/fitnessPalette';
+import type { FitnessPalette } from '../../constants/fitnessPalette';
+import { useFitnessPalette, useFitnessStyles } from '../../hooks/useFitnessPalette';
 import type { MainTabParamList } from '../../navigation/types';
 
 export type MainTabRoute = keyof MainTabParamList;
@@ -56,6 +57,8 @@ type BottomTabBarProps = {
 };
 
 export function BottomTabBar({ activeRoute, onNavigate }: BottomTabBarProps) {
+  const p = useFitnessPalette();
+  const styles = useFitnessStyles(buildStyles);
   const insets = useSafeAreaInsets();
 
   const renderTab = (tab: SideTab) => {
@@ -110,7 +113,8 @@ export function BottomTabBar({ activeRoute, onNavigate }: BottomTabBarProps) {
   );
 }
 
-const styles = StyleSheet.create({
+function buildStyles(p: FitnessPalette) {
+  return StyleSheet.create({
   wrap: {
     backgroundColor: p.bg,
     borderTopColor: p.border,
@@ -169,3 +173,5 @@ const styles = StyleSheet.create({
     width: 58,
   },
 });
+}
+

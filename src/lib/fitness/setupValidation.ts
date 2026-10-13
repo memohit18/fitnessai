@@ -74,6 +74,7 @@ export function validateFitnessSetupStep(
   if (step === 'diet') {
     if (!values.dietType) return 'Select a diet type.';
     if (!values.workoutExperience) return 'Select workout experience.';
+    if (!values.workoutMode) return 'Select workout mode (gym, home, or calisthenics).';
     if (
       values.workoutDaysPerWeek === '' ||
       Number(values.workoutDaysPerWeek) < 2 ||
@@ -105,6 +106,7 @@ export function toFitnessProfilePayload(
     workoutExperience:
       values.workoutExperience as FitnessProfilePayload['workoutExperience'],
     workoutDaysPerWeek: Number(values.workoutDaysPerWeek),
+    workoutMode: values.workoutMode as FitnessProfilePayload['workoutMode'],
     targetWeightKg:
       values.targetWeightKg === '' ? null : Number(values.targetWeightKg),
     targetBodyFatPercent:

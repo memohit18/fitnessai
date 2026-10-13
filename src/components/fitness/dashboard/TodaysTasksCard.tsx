@@ -1,7 +1,8 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-import { fitnessPalette as p } from '../../../constants/fitnessPalette';
+import type { FitnessPalette } from '../../../constants/fitnessPalette';
+import { useFitnessPalette, useFitnessStyles } from '../../../hooks/useFitnessPalette';
 import type { DashboardTask } from '../../../types/dashboard';
 
 type TodaysTasksCardProps = {
@@ -10,6 +11,8 @@ type TodaysTasksCardProps = {
 };
 
 export function TodaysTasksCard({ tasks, onTaskPress }: TodaysTasksCardProps) {
+  const p = useFitnessPalette();
+  const styles = useFitnessStyles(buildStyles);
   const doneCount = tasks.filter((task) => task.done).length;
 
   return (
@@ -46,7 +49,8 @@ export function TodaysTasksCard({ tasks, onTaskPress }: TodaysTasksCardProps) {
   );
 }
 
-const styles = StyleSheet.create({
+function buildStyles(p: FitnessPalette) {
+  return StyleSheet.create({
   card: {
     backgroundColor: p.surface,
     borderColor: p.border,
@@ -75,3 +79,5 @@ const styles = StyleSheet.create({
     textDecorationLine: 'line-through',
   },
 });
+}
+

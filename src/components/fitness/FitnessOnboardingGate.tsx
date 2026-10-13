@@ -10,7 +10,8 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { getFitnessProfile } from '../../api/fitnessApi';
-import { fitnessPalette as p } from '../../constants/fitnessPalette';
+import type { FitnessPalette } from '../../constants/fitnessPalette';
+import { useFitnessPalette, useFitnessStyles } from '../../hooks/useFitnessPalette';
 import { useAppDispatch } from '../../hooks';
 import { hasCompletedFitnessOnboarding } from '../../lib/fitness/fitnessResponse';
 import type { AppStackParamList } from '../../navigation/types';
@@ -30,6 +31,8 @@ type FitnessOnboardingGateProps = {
  * Mounted once around the tab navigator so tab screens stay cached.
  */
 export function FitnessOnboardingGate({ children }: FitnessOnboardingGateProps) {
+  const p = useFitnessPalette();
+  const styles = useFitnessStyles(buildStyles);
   const navigation = useNavigation<GateNavigation>();
   const dispatch = useAppDispatch();
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
@@ -112,7 +115,8 @@ export function FitnessOnboardingGate({ children }: FitnessOnboardingGateProps) 
   return <>{children}</>;
 }
 
-const styles = StyleSheet.create({
+function buildStyles(p: FitnessPalette) {
+  return StyleSheet.create({
   center: {
     alignItems: 'center',
     backgroundColor: p.bg,
@@ -144,3 +148,5 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
 });
+}
+

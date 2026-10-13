@@ -6,6 +6,7 @@ import type {
   FitnessSetupFormValues,
   FitnessSetupStepId,
   Gender,
+  WorkoutMode,
 } from '../../types/fitness';
 
 export const FITNESS_SETUP_STEPS: {
@@ -66,6 +67,20 @@ export const EXPERIENCE_LEVEL_OPTIONS: { value: ExperienceLevel; label: string }
     { value: 'advanced', label: 'Advanced' },
   ];
 
+export const WORKOUT_MODE_OPTIONS: {
+  value: WorkoutMode;
+  label: string;
+  description: string;
+}[] = [
+  { value: 'gym', label: 'Gym', description: 'Weights & machines' },
+  { value: 'home', label: 'Home', description: 'Minimal equipment' },
+  {
+    value: 'calisthenics',
+    label: 'Calisthenics',
+    description: 'Bodyweight training',
+  },
+];
+
 export const WORKOUT_DAYS_OPTIONS = [2, 3, 4, 5, 6, 7];
 
 export const FITNESS_ONBOARDING_BENEFITS = [
@@ -86,6 +101,7 @@ export const EMPTY_FITNESS_SETUP_VALUES: FitnessSetupFormValues = {
   dietType: '',
   workoutExperience: '',
   workoutDaysPerWeek: '',
+  workoutMode: '',
   targetWeightKg: '',
   targetBodyFatPercent: '',
   allergies: '',

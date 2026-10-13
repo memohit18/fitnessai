@@ -4,7 +4,8 @@ import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
 
 import { MediaThumb } from './MediaThumb';
-import { fitnessPalette as p } from '../../constants/fitnessPalette';
+import type { FitnessPalette } from '../../constants/fitnessPalette';
+import { useFitnessPalette, useFitnessStyles } from '../../hooks/useFitnessPalette';
 import { pickAndPrepareImage } from '../../services/pickAndPrepareImage';
 import { getApiErrorMessage } from '../../utils/api';
 
@@ -25,6 +26,8 @@ export function ImageUploadThumb({
   size = 78,
   onUpload,
 }: ImageUploadThumbProps) {
+  const p = useFitnessPalette();
+  const styles = useFitnessStyles(buildStyles);
   const [busy, setBusy] = useState(false);
   const [localUri, setLocalUri] = useState<string | null>(null);
 
@@ -86,7 +89,8 @@ export function ImageUploadThumb({
   );
 }
 
-const styles = StyleSheet.create({
+function buildStyles(p: FitnessPalette) {
+  return StyleSheet.create({
   wrap: {
     position: 'relative',
   },
@@ -102,3 +106,5 @@ const styles = StyleSheet.create({
     width: 26,
   },
 });
+}
+

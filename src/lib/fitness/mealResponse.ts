@@ -11,6 +11,12 @@ function readNumber(value: unknown, fallback = 0) {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
+function readNullableNumber(value: unknown) {
+  if (value == null || value === '') return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
 function asRecord(value: unknown): Record<string, unknown> | null {
   return value && typeof value === 'object' ? (value as Record<string, unknown>) : null;
 }
@@ -54,6 +60,38 @@ function normalizeMeal(raw: unknown, index: number): MealItem | null {
         firstItem?.food_id,
     ) || null;
 
+  const quantity = readNullableNumber(
+    record.quantity ?? firstItem?.quantity ?? record.servingQuantity,
+  );
+
+  const servingAmount = readNullableNumber(
+    record.servingAmount ??
+      record.serving_amount ??
+      nestedFood?.servingAmount ??
+      nestedFood?.serving_amount ??
+      nestedItemFood?.servingAmount ??
+      firstItem?.servingAmount,
+  );
+  const servingUnit =
+    readString(
+      record.servingUnit ??
+        record.serving_unit ??
+        nestedFood?.servingUnit ??
+        nestedFood?.serving_unit ??
+        nestedItemFood?.servingUnit ??
+        firstItem?.servingUnit,
+    ) || null;
+  const amount = readNullableNumber(
+    record.amount ?? firstItem?.amount,
+  );
+  const amountLabel =
+    readString(
+      record.amountLabel ??
+        record.amount_label ??
+        firstItem?.amountLabel ??
+        firstItem?.amount_label,
+    ) || null;
+
   return {
     id,
     foodId,
@@ -62,6 +100,19 @@ function normalizeMeal(raw: unknown, index: number): MealItem | null {
       'meal',
     ),
     name,
+    quantity,
+    servingAmount,
+    servingUnit,
+    servingSize:
+      readString(
+        record.servingSize ??
+          record.serving_size ??
+          nestedFood?.servingSize ??
+          nestedItemFood?.servingSize ??
+          firstItem?.servingSize,
+      ) || null,
+    amount,
+    amountLabel,
     calories: readNumber(
       record.calories ?? nestedFood?.calories ?? firstItem?.calories ?? record.kcal,
     ),
@@ -81,6 +132,27 @@ function normalizeMeal(raw: unknown, index: number): MealItem | null {
       record.status ?? record.logStatus ?? firstItem?.logStatus,
       'pending',
     ).toLowerCase(),
+    consumedQuantity: readNullableNumber(
+      record.consumedQuantity ?? record.consumed_quantity ?? firstItem?.consumedQuantity,
+    ),
+    consumedAmount: readNullableNumber(
+      record.consumedAmount ?? record.consumed_amount,
+    ),
+    consumedAmountLabel:
+      readString(
+        record.consumedAmountLabel ?? record.consumed_amount_label,
+      ) || null,
+    actualCalories: readNullableNumber(
+      record.actualCalories ?? record.actual_calories,
+    ),
+    actualProtein: readNullableNumber(
+      record.actualProtein ?? record.actual_protein,
+    ),
+    replacementFoodName:
+      readString(record.replacementFoodName ?? record.replacement_food_name) ||
+      null,
+    originalFoodName:
+      readString(record.originalFoodName ?? record.original_food_name) || null,
     scheduledTime:
       readString(record.scheduledTime ?? record.scheduled_time ?? record.time) ||
       null,
@@ -98,6 +170,8 @@ export function unwrapTodayMeals(response: unknown): TodayMeals | null {
 
   if (Array.isArray(data)) {
     return {
+      mealPlanId: null,
+      dayNumber: null,
       meals: data
         .map((item, index) => normalizeMeal(item, index))
         .filter((item): item is MealItem => item !== null),
@@ -114,6 +188,8 @@ export function unwrapTodayMeals(response: unknown): TodayMeals | null {
 
   return {
     date: readString(data.date) || null,
+    mealPlanId: readString(data.mealPlanId ?? data.meal_plan_id) || null,
+    dayNumber: readNullableNumber(data.dayNumber ?? data.day_number),
     meals: mealsRaw
       .map((item, index) => normalizeMeal(item, index))
       .filter((item): item is MealItem => item !== null),

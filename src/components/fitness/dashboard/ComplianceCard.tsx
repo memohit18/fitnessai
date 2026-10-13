@@ -1,7 +1,8 @@
 import { StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-import { fitnessPalette as p } from '../../../constants/fitnessPalette';
+import type { FitnessPalette } from '../../../constants/fitnessPalette';
+import { useFitnessPalette, useFitnessStyles } from '../../../hooks/useFitnessPalette';
 import type { DashboardBreakdown } from '../../../types/dashboard';
 
 type ComplianceCardProps = {
@@ -17,6 +18,8 @@ export function ComplianceCard({
   longestStreak,
   breakdown,
 }: ComplianceCardProps) {
+  const p = useFitnessPalette();
+  const styles = useFitnessStyles(buildStyles);
   return (
     <View style={styles.card}>
       <Text style={styles.title}>Compliance & Streak</Text>
@@ -63,6 +66,8 @@ export function ComplianceCard({
 }
 
 function Mini({ label, value }: { label: string; value: number | null }) {
+  const p = useFitnessPalette();
+  const styles = useFitnessStyles(buildStyles);
   return (
     <View style={styles.mini}>
       <Text style={styles.miniLabel}>{label}</Text>
@@ -73,7 +78,8 @@ function Mini({ label, value }: { label: string; value: number | null }) {
   );
 }
 
-const styles = StyleSheet.create({
+function buildStyles(p: FitnessPalette) {
+  return StyleSheet.create({
   card: {
     backgroundColor: p.surface,
     borderColor: p.border,
@@ -133,3 +139,5 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 });
+}
+

@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { Image, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-import { fitnessPalette as p } from '../../constants/fitnessPalette';
+import type { FitnessPalette } from '../../constants/fitnessPalette';
+import { useFitnessPalette, useFitnessStyles } from '../../hooks/useFitnessPalette';
 import { resolveFitnessMediaUrl } from '../../lib/fitness/mediaUrl';
 
 type MediaThumbProps = {
@@ -20,6 +21,8 @@ export function MediaThumb({
   fallbackIcon = 'image-outline',
   style,
 }: MediaThumbProps) {
+  const p = useFitnessPalette();
+  const styles = useFitnessStyles(buildStyles);
   const resolved = resolveFitnessMediaUrl(uri);
   const [failed, setFailed] = useState(false);
 
@@ -46,7 +49,8 @@ export function MediaThumb({
   );
 }
 
-const styles = StyleSheet.create({
+function buildStyles(p: FitnessPalette) {
+  return StyleSheet.create({
   fallback: {
     alignItems: 'center',
     backgroundColor: p.surfaceElevated,
@@ -56,3 +60,5 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
 });
+}
+

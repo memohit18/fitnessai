@@ -26,6 +26,8 @@ export type DietType =
 
 export type ExperienceLevel = 'beginner' | 'intermediate' | 'advanced';
 
+export type WorkoutMode = 'gym' | 'home' | 'calisthenics';
+
 export type FitnessSetupStepId =
   | 'welcome'
   | 'basic-info'
@@ -55,6 +57,7 @@ export type FitnessProfilePayload = {
   dietType: DietType;
   workoutExperience: ExperienceLevel;
   workoutDaysPerWeek: number;
+  workoutMode?: WorkoutMode;
   targetWeightKg?: number | null;
   targetBodyFatPercent?: number | null;
   allergies?: string | null;
@@ -72,6 +75,7 @@ export type FitnessSetupFormValues = {
   dietType: DietType | '';
   workoutExperience: ExperienceLevel | '';
   workoutDaysPerWeek: number | '';
+  workoutMode: WorkoutMode | '';
   targetWeightKg: number | '';
   targetBodyFatPercent: number | '';
   allergies: string;
@@ -98,23 +102,78 @@ export type FitnessReviewSection = {
 
 export type MealType = 'breakfast' | 'lunch' | 'snack' | 'dinner';
 
+export type MealServingUnit = 'g' | 'ml' | 'piece' | 'tbsp' | 'serving' | string;
+
 export type MealItem = {
   id: string;
   foodId?: string | null;
   type: MealType | string;
   name: string;
+  /** Planned servings. Macros on the item are already scaled by this amount. */
+  quantity: number | null;
+  /** Base portion size from the food catalog (e.g. 240). */
+  servingAmount?: number | null;
+  /** Base portion unit (g / ml / piece / tbsp / serving). */
+  servingUnit?: MealServingUnit | null;
+  servingSize?: string | null;
+  /** quantity × servingAmount (e.g. 360). */
+  amount?: number | null;
+  /** Human label from API, e.g. "360 ml" or "150 g". */
+  amountLabel?: string | null;
   calories: number;
   protein: number;
   carbs: number;
   fats: number;
   status: string;
+  /** Fraction of the planned amount that was logged. */
+  consumedQuantity?: number | null;
+  /** Absolute amount eaten when logged (quantity × servingAmount × consumedQuantity). */
+  consumedAmount?: number | null;
+  consumedAmountLabel?: string | null;
+  actualCalories?: number | null;
+  actualProtein?: number | null;
+  replacementFoodName?: string | null;
+  originalFoodName?: string | null;
   scheduledTime?: string | null;
   imageUrl?: string | null;
 };
 
+export type NutritionBudget = {
+  calories: number;
+  calorieTarget: number;
+  protein: number;
+  proteinTarget: number;
+  carbs: number;
+  carbsTarget: number;
+  fats: number;
+  fatsTarget: number;
+};
+
 export type TodayMeals = {
   date?: string | null;
+  mealPlanId?: string | null;
+  dayNumber?: number | null;
   meals: MealItem[];
+};
+
+export type FoodOption = {
+  id: string;
+  name: string;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fats: number;
+  servingSize?: string | null;
+  servingAmount?: number | null;
+  servingUnit?: MealServingUnit | null;
+};
+
+export type WorkoutSetLog = {
+  id: string;
+  setNumber: number;
+  reps: number | null;
+  weightKg: number | null;
+  completed: boolean;
 };
 
 export type WorkoutExercise = {
@@ -125,7 +184,10 @@ export type WorkoutExercise = {
   targetSets: number;
   targetReps: string | number | null;
   targetWeightKg: number | null;
+  restSeconds: number;
   completed: boolean;
+  skipped?: boolean;
+  loggedSets: WorkoutSetLog[];
   imageUrl?: string | null;
 };
 
@@ -135,4 +197,13 @@ export type WorkoutDay = {
   focus?: string | null;
   estimatedMinutes?: number | null;
   exercises: WorkoutExercise[];
+};
+
+export type WorkoutSessionStatus = 'idle' | 'active' | 'paused' | 'finished';
+
+export type WorkoutSession = {
+  sessionId: string;
+  status: string;
+  durationSeconds?: number | null;
+  exercises?: WorkoutExercise[];
 };

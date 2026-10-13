@@ -2,7 +2,8 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import { ProgressRing } from './ProgressRing';
-import { fitnessPalette as p } from '../../../constants/fitnessPalette';
+import type { FitnessPalette } from '../../../constants/fitnessPalette';
+import { useFitnessPalette, useFitnessStyles } from '../../../hooks/useFitnessPalette';
 import type { DashboardWaterProgress } from '../../../types/dashboard';
 
 const QUICK_ADDS = [250, 500, 750] as const;
@@ -18,6 +19,8 @@ export function WaterTrackerCard({
   isLogging,
   onAdd,
 }: WaterTrackerCardProps) {
+  const p = useFitnessPalette();
+  const styles = useFitnessStyles(buildStyles);
   const liters = (water.currentMl / 1000).toFixed(1);
   const goalLiters = (water.goalMl / 1000).toFixed(1);
 
@@ -64,7 +67,8 @@ export function WaterTrackerCard({
   );
 }
 
-const styles = StyleSheet.create({
+function buildStyles(p: FitnessPalette) {
+  return StyleSheet.create({
   card: {
     backgroundColor: p.surface,
     borderColor: p.border,
@@ -89,3 +93,5 @@ const styles = StyleSheet.create({
   },
   addText: { color: p.text, fontSize: 11, fontWeight: '800' },
 });
+}
+

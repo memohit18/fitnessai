@@ -1,7 +1,8 @@
 import { StyleSheet, Text, View } from 'react-native';
 
 import { ProgressRing } from './ProgressRing';
-import { fitnessPalette as p } from '../../../constants/fitnessPalette';
+import type { FitnessPalette } from '../../../constants/fitnessPalette';
+import { useFitnessPalette, useFitnessStyles } from '../../../hooks/useFitnessPalette';
 import type { DashboardMacro } from '../../../types/dashboard';
 
 type MacroSummaryCardProps = {
@@ -10,6 +11,8 @@ type MacroSummaryCardProps = {
 };
 
 export function MacroSummaryCard({ calories, protein }: MacroSummaryCardProps) {
+  const p = useFitnessPalette();
+  const styles = useFitnessStyles(buildStyles);
   return (
     <View style={styles.card}>
       <Text style={styles.title}>Calories & Protein</Text>
@@ -46,7 +49,8 @@ export function MacroSummaryCard({ calories, protein }: MacroSummaryCardProps) {
   );
 }
 
-const styles = StyleSheet.create({
+function buildStyles(p: FitnessPalette) {
+  return StyleSheet.create({
   card: {
     backgroundColor: p.surface,
     borderColor: p.border,
@@ -81,3 +85,5 @@ const styles = StyleSheet.create({
   },
   statValue: { color: p.text, fontSize: 16, fontWeight: '800', marginTop: 4 },
 });
+}
+

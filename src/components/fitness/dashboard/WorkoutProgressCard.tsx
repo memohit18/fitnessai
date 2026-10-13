@@ -1,6 +1,7 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { fitnessPalette as p } from '../../../constants/fitnessPalette';
+import type { FitnessPalette } from '../../../constants/fitnessPalette';
+import { useFitnessPalette, useFitnessStyles } from '../../../hooks/useFitnessPalette';
 import type { DashboardWorkoutProgress } from '../../../types/dashboard';
 
 type WorkoutProgressCardProps = {
@@ -12,6 +13,8 @@ export function WorkoutProgressCard({
   workout,
   onOpen,
 }: WorkoutProgressCardProps) {
+  const p = useFitnessPalette();
+  const styles = useFitnessStyles(buildStyles);
   const percent = workout.completed
     ? 100
     : Math.min(100, Math.max(0, workout.score ?? 0));
@@ -46,6 +49,8 @@ export function WorkoutProgressCard({
 }
 
 function Stat({ label, value }: { label: string; value: string }) {
+  const p = useFitnessPalette();
+  const styles = useFitnessStyles(buildStyles);
   return (
     <View style={styles.stat}>
       <Text style={styles.statLabel}>{label}</Text>
@@ -54,7 +59,8 @@ function Stat({ label, value }: { label: string; value: string }) {
   );
 }
 
-const styles = StyleSheet.create({
+function buildStyles(p: FitnessPalette) {
+  return StyleSheet.create({
   card: {
     backgroundColor: p.surface,
     borderColor: p.border,
@@ -93,3 +99,5 @@ const styles = StyleSheet.create({
   },
   statValue: { color: p.text, fontSize: 14, fontWeight: '800', marginTop: 4 },
 });
+}
+

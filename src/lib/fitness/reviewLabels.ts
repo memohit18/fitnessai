@@ -5,6 +5,7 @@ import {
   EXPERIENCE_LEVEL_OPTIONS,
   FITNESS_GOAL_OPTIONS,
   GENDER_OPTIONS,
+  WORKOUT_MODE_OPTIONS,
 } from './constants';
 
 function labelFor<T extends string>(
@@ -70,6 +71,10 @@ export function buildFitnessReviewSectionsFromProfile(
         {
           label: 'Experience',
           value: labelFor(EXPERIENCE_LEVEL_OPTIONS, profile.workoutExperience),
+        },
+        {
+          label: 'Workout mode',
+          value: labelFor(WORKOUT_MODE_OPTIONS, profile.workoutMode),
         },
         {
           label: 'Workout days',

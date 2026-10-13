@@ -1,7 +1,8 @@
 import { StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 
-import { fitnessPalette as p } from '../../../constants/fitnessPalette';
+import type { FitnessPalette } from '../../../constants/fitnessPalette';
+import { useFitnessPalette, useFitnessStyles } from '../../../hooks/useFitnessPalette';
 
 type ProgressRingProps = {
   value: number;
@@ -18,10 +19,12 @@ export function ProgressRing({
   max,
   size = 96,
   stroke = 8,
-  color = p.lime,
+  color,
   label,
   sublabel,
 }: ProgressRingProps) {
+  const p = useFitnessPalette();
+  const styles = useFitnessStyles(buildStyles);
   const radius = (size - stroke) / 2;
   const circumference = 2 * Math.PI * radius;
   const safeMax = Math.max(0.0001, max);
@@ -44,7 +47,7 @@ export function ProgressRing({
           cy={size / 2}
           fill="none"
           r={radius}
-          stroke={color}
+          stroke={color ?? p.lime}
           strokeDasharray={`${circumference} ${circumference}`}
           strokeDashoffset={offset}
           strokeLinecap="round"
@@ -65,7 +68,8 @@ export function ProgressRing({
   );
 }
 
-const styles = StyleSheet.create({
+function buildStyles(p: FitnessPalette) {
+  return StyleSheet.create({
   center: {
     alignItems: 'center',
     bottom: 0,
@@ -94,3 +98,5 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 });
+}
+

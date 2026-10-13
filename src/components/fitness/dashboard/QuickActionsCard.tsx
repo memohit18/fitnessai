@@ -1,7 +1,8 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-import { fitnessPalette as p } from '../../../constants/fitnessPalette';
+import type { FitnessPalette } from '../../../constants/fitnessPalette';
+import { useFitnessPalette, useFitnessStyles } from '../../../hooks/useFitnessPalette';
 
 type ActionKey =
   | 'meals'
@@ -29,6 +30,8 @@ type QuickActionsCardProps = {
 };
 
 export function QuickActionsCard({ onAction }: QuickActionsCardProps) {
+  const p = useFitnessPalette();
+  const styles = useFitnessStyles(buildStyles);
   return (
     <View style={styles.card}>
       <Text style={styles.title}>Quick Actions</Text>
@@ -52,7 +55,8 @@ export function QuickActionsCard({ onAction }: QuickActionsCardProps) {
   );
 }
 
-const styles = StyleSheet.create({
+function buildStyles(p: FitnessPalette) {
+  return StyleSheet.create({
   card: {
     backgroundColor: p.surface,
     borderColor: p.border,
@@ -78,3 +82,5 @@ const styles = StyleSheet.create({
   },
   tileLabel: { color: p.text, flex: 1, fontSize: 12, fontWeight: '700' },
 });
+}
+

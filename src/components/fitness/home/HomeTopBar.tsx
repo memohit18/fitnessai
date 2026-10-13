@@ -2,7 +2,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { UserAvatar } from '../../app/UserAvatar';
-import { fitnessPalette as p } from '../../../constants/fitnessPalette';
+import type { FitnessPalette } from '../../../constants/fitnessPalette';
+import { useFitnessPalette, useFitnessStyles } from '../../../hooks/useFitnessPalette';
 
 type HomeTopBarProps = {
   firstName: string;
@@ -21,6 +22,8 @@ export function HomeTopBar({
   onBellPress,
   onStreakPress,
 }: HomeTopBarProps) {
+  const p = useFitnessPalette();
+  const styles = useFitnessStyles(buildStyles);
   return (
     <View style={styles.row}>
       <Pressable accessibilityRole="button" onPress={onAvatarPress} style={styles.identity}>
@@ -54,7 +57,8 @@ export function HomeTopBar({
   );
 }
 
-const styles = StyleSheet.create({
+function buildStyles(p: FitnessPalette) {
+  return StyleSheet.create({
   row: {
     alignItems: 'center',
     flexDirection: 'row',
@@ -104,3 +108,5 @@ const styles = StyleSheet.create({
     width: 8,
   },
 });
+}
+

@@ -1,6 +1,7 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { fitnessPalette as p } from '../../../constants/fitnessPalette';
+import type { FitnessPalette } from '../../../constants/fitnessPalette';
+import { useFitnessPalette, useFitnessStyles } from '../../../hooks/useFitnessPalette';
 import type { DashboardMealProgress } from '../../../types/dashboard';
 
 type MealProgressCardProps = {
@@ -9,6 +10,8 @@ type MealProgressCardProps = {
 };
 
 export function MealProgressCard({ meals, onOpen }: MealProgressCardProps) {
+  const p = useFitnessPalette();
+  const styles = useFitnessStyles(buildStyles);
   return (
     <View style={styles.card}>
       <View style={styles.header}>
@@ -40,6 +43,8 @@ export function MealProgressCard({ meals, onOpen }: MealProgressCardProps) {
 }
 
 function Stat({ label, value }: { label: string; value: string }) {
+  const p = useFitnessPalette();
+  const styles = useFitnessStyles(buildStyles);
   return (
     <View style={styles.stat}>
       <Text style={styles.statLabel}>{label}</Text>
@@ -48,7 +53,8 @@ function Stat({ label, value }: { label: string; value: string }) {
   );
 }
 
-const styles = StyleSheet.create({
+function buildStyles(p: FitnessPalette) {
+  return StyleSheet.create({
   card: {
     backgroundColor: p.surface,
     borderColor: p.border,
@@ -87,3 +93,5 @@ const styles = StyleSheet.create({
   },
   statValue: { color: p.text, fontSize: 14, fontWeight: '800', marginTop: 4 },
 });
+}
+

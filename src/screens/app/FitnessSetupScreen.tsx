@@ -16,7 +16,8 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import Toast from 'react-native-toast-message';
 
 import { getFitnessGoals, getFitnessProfile, saveFitnessProfile } from '../../api/fitnessApi';
-import { fitnessPalette as p } from '../../constants/fitnessPalette';
+import type { FitnessPalette } from '../../constants/fitnessPalette';
+import { useFitnessPalette, useFitnessStyles } from '../../hooks/useFitnessPalette';
 import {
   ACTIVITY_LEVEL_OPTIONS,
   ALLERGY_QUICK_TAGS,
@@ -27,6 +28,7 @@ import {
   FITNESS_SETUP_STEPS,
   GENDER_OPTIONS,
   WORKOUT_DAYS_OPTIONS,
+  WORKOUT_MODE_OPTIONS,
 } from '../../lib/fitness/constants';
 import { buildFitnessReviewSectionsFromProfile } from '../../lib/fitness/reviewLabels';
 import { hasCompletedFitnessOnboarding } from '../../lib/fitness/fitnessResponse';
@@ -48,6 +50,8 @@ type Nav = NativeStackNavigationProp<AppStackParamList, 'FitnessSetup'>;
 type SetupRoute = RouteProp<AppStackParamList, 'FitnessSetup'>;
 
 export function FitnessSetupScreen() {
+  const p = useFitnessPalette();
+  const styles = useFitnessStyles(buildStyles);
   const navigation = useNavigation<Nav>();
   const route = useRoute<SetupRoute>();
   const isEditMode = route.params?.mode === 'edit';
@@ -93,6 +97,7 @@ export function FitnessSetupScreen() {
           dietType: profile.dietType ?? '',
           workoutExperience: profile.workoutExperience ?? '',
           workoutDaysPerWeek: profile.workoutDaysPerWeek ?? '',
+          workoutMode: profile.workoutMode ?? '',
           targetWeightKg: profile.targetWeightKg ?? '',
           targetBodyFatPercent: profile.targetBodyFatPercent ?? '',
           allergies: profile.allergies ?? '',
@@ -311,6 +316,8 @@ export function FitnessSetupScreen() {
 }
 
 function Welcome() {
+  const p = useFitnessPalette();
+  const styles = useFitnessStyles(buildStyles);
   return (
     <View style={styles.section}>
       <Text style={styles.eyebrow}>FitForge Setup</Text>
@@ -338,6 +345,8 @@ function BasicInfo({
     value: FitnessSetupFormValues[K],
   ) => void;
 }) {
+  const p = useFitnessPalette();
+  const styles = useFitnessStyles(buildStyles);
   return (
     <View style={styles.section}>
       <Text style={styles.title}>Basic information</Text>
@@ -387,6 +396,8 @@ function DietStep({
     value: FitnessSetupFormValues[K],
   ) => void;
 }) {
+  const p = useFitnessPalette();
+  const styles = useFitnessStyles(buildStyles);
   return (
     <View style={styles.section}>
       <Text style={styles.title}>Diet & training</Text>
@@ -415,6 +426,23 @@ function DietStep({
             <Pressable
               key={option.value}
               onPress={() => onChange('workoutExperience', option.value)}
+              style={[styles.chip, active && styles.chipActive]}
+            >
+              <Text style={[styles.chipText, active && styles.chipTextActive]}>
+                {option.label}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+      <Text style={styles.fieldLabel}>Workout mode</Text>
+      <View style={styles.chipWrap}>
+        {WORKOUT_MODE_OPTIONS.map((option) => {
+          const active = values.workoutMode === option.value;
+          return (
+            <Pressable
+              key={option.value}
+              onPress={() => onChange('workoutMode', option.value)}
               style={[styles.chip, active && styles.chipActive]}
             >
               <Text style={[styles.chipText, active && styles.chipTextActive]}>
@@ -460,6 +488,8 @@ function AllergyStep({
   value: string;
   onChange: (text: string) => void;
 }) {
+  const p = useFitnessPalette();
+  const styles = useFitnessStyles(buildStyles);
   return (
     <View style={styles.section}>
       <Text style={styles.title}>Allergies & restrictions</Text>
@@ -499,6 +529,8 @@ function OptionList<T extends string>({
   selected: T | '';
   onSelect: (value: T) => void;
 }) {
+  const p = useFitnessPalette();
+  const styles = useFitnessStyles(buildStyles);
   return (
     <View style={styles.section}>
       <Text style={styles.title}>Activity level</Text>
@@ -532,6 +564,8 @@ function GoalPicker({
   selectedId: string;
   onSelect: (goal: PhysiqueGoal) => void;
 }) {
+  const p = useFitnessPalette();
+  const styles = useFitnessStyles(buildStyles);
   if (!goals.length) {
     return (
       <View style={styles.section}>
@@ -580,6 +614,8 @@ function NumberField({
   value: number | '';
   onChange: (value: number | '') => void;
 }) {
+  const p = useFitnessPalette();
+  const styles = useFitnessStyles(buildStyles);
   return (
     <View style={styles.fieldBlock}>
       <Text style={styles.fieldLabel}>{label}</Text>
@@ -602,7 +638,8 @@ function NumberField({
   );
 }
 
-const styles = StyleSheet.create({
+function buildStyles(p: FitnessPalette) {
+  return StyleSheet.create({
   root: {
     backgroundColor: p.bg,
     flex: 1,
@@ -844,3 +881,5 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 });
+}
+

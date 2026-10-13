@@ -1,7 +1,8 @@
 import { StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-import { fitnessPalette as p } from '../../../constants/fitnessPalette';
+import type { FitnessPalette } from '../../../constants/fitnessPalette';
+import { useFitnessPalette, useFitnessStyles } from '../../../hooks/useFitnessPalette';
 import type { DashboardAchievement } from '../../../types/dashboard';
 
 type AchievementsCardProps = {
@@ -9,6 +10,8 @@ type AchievementsCardProps = {
 };
 
 export function AchievementsCard({ achievements }: AchievementsCardProps) {
+  const p = useFitnessPalette();
+  const styles = useFitnessStyles(buildStyles);
   return (
     <View style={styles.card}>
       <Text style={styles.title}>Achievements</Text>
@@ -58,7 +61,8 @@ export function AchievementsCard({ achievements }: AchievementsCardProps) {
   );
 }
 
-const styles = StyleSheet.create({
+function buildStyles(p: FitnessPalette) {
+  return StyleSheet.create({
   card: {
     backgroundColor: p.surface,
     borderColor: p.border,
@@ -117,3 +121,5 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 });
+}
+

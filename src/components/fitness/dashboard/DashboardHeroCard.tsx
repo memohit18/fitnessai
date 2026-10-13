@@ -3,7 +3,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 
 import { ProgressRing } from './ProgressRing';
-import { fitnessPalette as p } from '../../../constants/fitnessPalette';
+import type { FitnessPalette } from '../../../constants/fitnessPalette';
+import { useFitnessPalette, useFitnessStyles } from '../../../hooks/useFitnessPalette';
 
 type DashboardHeroCardProps = {
   score: number | null;
@@ -22,6 +23,8 @@ export function DashboardHeroCard({
   refreshing,
   onRefresh,
 }: DashboardHeroCardProps) {
+  const p = useFitnessPalette();
+  const styles = useFitnessStyles(buildStyles);
   return (
     <View style={styles.shell}>
       <LinearGradient
@@ -87,7 +90,8 @@ export function DashboardHeroCard({
   );
 }
 
-const styles = StyleSheet.create({
+function buildStyles(p: FitnessPalette) {
+  return StyleSheet.create({
   shell: {
     backgroundColor: p.surface,
     borderColor: p.border,
@@ -157,3 +161,5 @@ const styles = StyleSheet.create({
     width: 40,
   },
 });
+}
+
